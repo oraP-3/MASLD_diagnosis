@@ -164,7 +164,7 @@
         </section>
 
         <div id="section-diagnosis-wrapper" class="hidden space-y-6">
-            <section id="diagnosis-card" class="p-6 rounded-2xl border-2 shadow-sm transition-all duration-500">
+            <section id="diagnosis-card" class="p-6 rounded-2xl border-2 shadow-sm transition-all duration-500 scroll-mt-6">
                 <h3 class="text-lg font-bold mb-3 flex items-center gap-2">
                     <span class="bg-white text-slate-800 w-6 h-6 rounded-full flex items-center justify-center text-sm shadow-sm">
                         <i data-lucide="check-circle" class="w-4 h-4"></i>
@@ -248,17 +248,18 @@
             cmrf: { body: false, glucose: false, bp: false, tg: false, hdl: false }
         };
 
+        // スクロール制御用の変数
+        let lastDiagnosisTitle = null;
+
         // --- 初期化処理 ---
         function init() {
             lucide.createIcons();
             
-            // 頻度ボタンの生成
             const freqContainer = document.getElementById('freq-buttons');
             freqContainer.innerHTML = FREQUENCIES.map(f => 
                 `<button id="btn-freq-${f.id}" onclick="setFrequency('${f.id}')" class="py-2 px-1 text-xs md:text-sm rounded-xl font-medium transition bg-slate-100 text-slate-600 hover:bg-slate-200">${f.name}</button>`
             ).join('');
 
-            // お酒リストの生成
             const drinksContainer = document.getElementById('drinks-list');
             drinksContainer.innerHTML = DRINK_CATEGORIES.map(cat => `
                 <div class="p-3 border border-slate-200 rounded-xl bg-slate-50">
@@ -288,7 +289,7 @@
                 </div>
             `).join('');
             
-            lucide.createIcons(); // 動的生成したアイコンを反映
+            lucide.createIcons();
             updateUI();
         }
 
@@ -307,8 +308,7 @@
         }
         function changeDrink(id, delta) {
             const current = state.drinks[id] || 0;
-            const next = Math.max(0, current + delta);
-            state.drinks[id] = next;
+            state.drinks[id] = Math.max(0, current + delta);
             updateUI();
         }
         function toggleCmrf(key, checked) {
@@ -316,24 +316,20 @@
             updateUI();
         }
 
-        // --- UI一括更新（Reactのrender相当） ---
+        // --- UI一括更新 ---
         function updateUI() {
-            // 1. 男女ボタンのスタイル
             document.getElementById('btn-male').className = `flex-1 py-3 rounded-xl font-medium flex items-center justify-center gap-2 transition ${state.gender === 'male' ? 'bg-sky-600 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`;
             document.getElementById('btn-female').className = `flex-1 py-3 rounded-xl font-medium flex items-center justify-center gap-2 transition ${state.gender === 'female' ? 'bg-rose-500 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`;
             
-            // 基準値テキストの更新
             document.getElementById('text-waist').innerText = state.gender === 'male' ? '男性 94cm' : '女性 80cm';
             document.getElementById('text-hdl').innerText = state.gender === 'male' ? '男性 40 mg/dL' : '女性 50 mg/dL';
 
-            // 2. 脂肪肝ボタンのスタイルと「その他成因」の表示
             document.getElementById('btn-steatosis-yes').className = `flex-1 py-3 rounded-xl font-medium transition ${state.hasSteatosis === true ? 'bg-blue-600 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`;
             document.getElementById('btn-steatosis-no').className = `flex-1 py-3 rounded-xl font-medium transition ${state.hasSteatosis === false ? 'bg-green-600 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`;
             
             document.getElementById('other-causes-wrapper').style.display = state.hasSteatosis === true ? 'block' : 'none';
             document.getElementById('chk-other-causes').checked = state.hasOtherCauses;
 
-            // --- 計算ロジック ---
             const daysPerWeek = FREQUENCIES.find(f => f.id === state.frequency)?.daysPerWeek || 0;
             let alcoholPerDay = 0;
             
@@ -341,7 +337,6 @@
                 cat.options.forEach(opt => {
                     const count = state.drinks[opt.id] || 0;
                     alcoholPerDay += opt.alcohol * count;
-                    // カウンターの表示更新
                     const countEl = document.getElementById(`count-${opt.id}`);
                     if(countEl) countEl.innerText = count;
                 });
@@ -353,11 +348,9 @@
             const thresholds = state.gender === 'female' ? { masld: 140, metald: 350 } : { masld: 210, metald: 420 };
             const isALD = weeklyAlcohol > thresholds.metald;
 
-            // 表示制御フラグ
             const showDrinks = state.hasSteatosis === true && !state.hasOtherCauses;
             const showCMRF = showDrinks && !isALD;
 
-            // 3. 飲酒セクションの更新
             document.getElementById('section-alcohol').style.display = showDrinks ? 'block' : 'none';
             document.getElementById('val-weekly-alcohol').innerText = weeklyAlcohol;
             document.getElementById('val-daily-alcohol').innerText = Math.round(alcoholPerDay * 10) / 10;
@@ -368,7 +361,6 @@
             });
             document.getElementById('drinks-wrapper').style.display = state.frequency !== 'none' ? 'block' : 'none';
 
-            // ALD警告
             const aldWarn = document.getElementById('ald-warning');
             if (isALD) {
                 aldWarn.style.display = 'flex';
@@ -377,7 +369,6 @@
                 aldWarn.style.display = 'none';
             }
 
-            // 4. CMRFセクションの更新
             document.getElementById('section-cmrf').style.display = showCMRF ? 'block' : 'none';
             document.getElementById('val-cmrf-count').innerText = cmrfCount;
             
@@ -387,7 +378,7 @@
                 if(lbl) lbl.className = `flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition ${isChecked ? 'bg-blue-50 border-blue-300' : 'border-slate-200 hover:bg-slate-50'}`;
             });
 
-            // 5. 診断結果の判定と表示
+            // 診断ロジック
             let diag = null;
             if (state.hasSteatosis !== null) {
                 if (state.hasSteatosis === false) {
@@ -406,13 +397,24 @@
             }
 
             const diagWrapper = document.getElementById('section-diagnosis-wrapper');
+            const diagnosisCard = document.getElementById('diagnosis-card');
+            
             if (diag) {
                 diagWrapper.style.display = 'block';
                 document.getElementById('diag-title').innerText = diag.title;
                 document.getElementById('diag-desc').innerText = diag.desc;
-                document.getElementById('diagnosis-card').className = `p-6 rounded-2xl border-2 shadow-sm transition-all duration-500 ${diag.color}`;
+                diagnosisCard.className = `p-6 rounded-2xl border-2 shadow-sm transition-all duration-500 scroll-mt-6 ${diag.color}`;
+
+                // --- 自動スクロール処理（追加部分） ---
+                if (lastDiagnosisTitle !== diag.title) {
+                    setTimeout(() => {
+                        diagnosisCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }, 100);
+                    lastDiagnosisTitle = diag.title;
+                }
             } else {
                 diagWrapper.style.display = 'none';
+                lastDiagnosisTitle = null; // リセット
             }
             
             calculateFib4();
@@ -454,7 +456,6 @@
             }
         }
 
-        // ページ読み込み時に初期化
         window.onload = init;
     </script>
 </body>
