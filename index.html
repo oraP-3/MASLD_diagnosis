@@ -405,11 +405,13 @@
                 document.getElementById('diag-desc').innerText = diag.desc;
                 diagnosisCard.className = `p-6 rounded-2xl border-2 shadow-sm transition-all duration-500 scroll-mt-6 ${diag.color}`;
 
-                // --- 自動スクロール処理（追加部分） ---
+                // --- 自動スクロール処理（成因不明SLDを除外） ---
                 if (lastDiagnosisTitle !== diag.title) {
-                    setTimeout(() => {
-                        diagnosisCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    }, 100);
+                    if (diag.title !== "成因不明SLD (Cryptogenic SLD)") {
+                        setTimeout(() => {
+                            diagnosisCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }, 100);
+                    }
                     lastDiagnosisTitle = diag.title;
                 }
             } else {
