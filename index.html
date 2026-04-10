@@ -1,579 +1,461 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Activity, Info, User, CheckCircle, AlertCircle, Plus, Minus, Calculator, ArrowRight } from 'lucide-react';
-
-const DRINK_CATEGORIES = [
-  { 
-    id: 'beer', 
-    name: 'ビール・発泡酒', 
-    icon: '🍺',
-    options: [
-      { id: 'beer_350', label: '350ml缶', alcohol: 14 },
-      { id: 'beer_500', label: '500ml缶', alcohol: 20 },
-    ]
-  },
-  { 
-    id: 'chuhai_5', 
-    name: 'チューハイ (5%前後)', 
-    icon: '🍋',
-    options: [
-      { id: 'chuhai5_350', label: '350ml缶', alcohol: 14 },
-      { id: 'chuhai5_500', label: '500ml缶', alcohol: 20 },
-    ]
-  },
-  { 
-    id: 'chuhai_7', 
-    name: 'チューハイ (7%前後)', 
-    icon: '⚡️', 
-    options: [
-      { id: 'chuhai7_350', label: '350ml缶', alcohol: 19.6 },
-      { id: 'chuhai7_500', label: '500ml缶', alcohol: 28 },
-    ]
-  },
-  { 
-    id: 'chuhai_9', 
-    name: 'ストロング系 (9%前後)', 
-    icon: '🔥',
-    options: [
-      { id: 'chuhai9_350', label: '350ml缶', alcohol: 25.2 },
-      { id: 'chuhai9_500', label: '500ml缶', alcohol: 36 },
-    ]
-  },
-  { 
-    id: 'others', 
-    name: 'その他のお酒 (1杯/1合あたり)', 
-    icon: '🍷',
-    options: [
-      { id: 'wine', label: 'ワイン(グラス)', alcohol: 11.5 },
-      { id: 'sake', label: '日本酒(1合)', alcohol: 21.6 },
-      { id: 'shochu', label: '焼酎・ハイボール', alcohol: 14 },
-    ]
-  }
-];
-
-const FREQUENCIES = [
-  { id: 'none', name: '飲まない', daysPerWeek: 0 },
-  { id: 'rarely', name: '機会飲酒', daysPerWeek: 0.5 },
-  { id: '2-3', name: '週2〜3日', daysPerWeek: 2.5 },
-  { id: '4-5', name: '週4〜5日', daysPerWeek: 4.5 },
-  { id: 'everyday', name: 'ほぼ毎日', daysPerWeek: 7 },
-];
-
-export default function App() {
-  const [gender, setGender] = useState('male');
-  const [hasSteatosis, setHasSteatosis] = useState(null);
-  const [hasOtherCauses, setHasOtherCauses] = useState(false);
-  
-  const [frequency, setFrequency] = useState('none');
-  const [drinks, setDrinks] = useState({});
-
-  const [cmrf, setCmrf] = useState({
-    body: false,
-    glucose: false,
-    bp: false,
-    tg: false,
-    hdl: false,
-  });
-
-  // FIB-4 index 用の state
-  const [fib4, setFib4] = useState({
-    age: '',
-    ast: '',
-    alt: '',
-    plt: ''
-  });
-
-  const resultRef = useRef(null);
-
-  const handleCmrfChange = (key) => {
-    setCmrf(prev => ({ ...prev, [key]: !prev[key] }));
-  };
-
-  const handleDrinkChange = (id, delta) => {
-    setDrinks(prev => {
-      const current = prev[id] || 0;
-      const next = Math.max(0, current + delta);
-      return { ...prev, [id]: next };
-    });
-  };
-
-  const handleFib4Change = (key, value) => {
-    setFib4(prev => ({ ...prev, [key]: value }));
-  };
-
-  // 計算ロジック
-  const daysPerWeek = FREQUENCIES.find(f => f.id === frequency)?.daysPerWeek || 0;
-  
-  const alcoholPerDay = Object.entries(drinks).reduce((total, [drinkId, count]) => {
-    let alcoholContent = 0;
-    DRINK_CATEGORIES.forEach(cat => {
-      const option = cat.options.find(opt => opt.id === drinkId);
-      if (option) alcoholContent = option.alcohol;
-    });
-    return total + (alcoholContent * count);
-  }, 0);
-
-  const weeklyAlcohol = Math.round(alcoholPerDay * daysPerWeek * 10) / 10;
-  const cmrfCount = Object.values(cmrf).filter(Boolean).length;
-
-  // ALD判定の閾値（性別）
-  const thresholds = gender === 'female' ? { masld: 140, metald: 350 } : { masld: 210, metald: 420 };
-  const isALD = weeklyAlcohol > thresholds.metald;
-
-  // 表示制御フラグ
-  const showDrinks = hasSteatosis === true && !hasOtherCauses;
-  const showCMRF = showDrinks && !isALD;
-  
-  // 診断結果を返す関数
-  const getDiagnosis = () => {
-    if (hasSteatosis === null) return null;
-
-    if (hasSteatosis === false) {
-      return {
-        id: 'no_steatosis',
-        title: "脂肪肝なし",
-        color: "bg-green-100 text-green-800 border-green-400",
-        desc: "画像または組織学的に肝脂肪化を認めないため、SLD（脂肪性肝疾患）には該当しません。"
-      };
-    }
-
-    if (hasOtherCauses) {
-      return {
-        id: 'other_causes',
-        title: "特定成因SLD",
-        color: "bg-purple-100 text-purple-800 border-purple-400",
-        desc: "ウイルス性（HCV等）、薬物性、単一遺伝子病などの特定の原因による脂肪性肝疾患です。"
-      };
-    }
-
-    if (isALD) {
-      return {
-        id: 'ald',
-        title: "ALD (アルコール関連肝疾患)",
-        color: "bg-red-100 text-red-800 border-red-400",
-        desc: `過剰な飲酒（女性350g/週超、男性420g/週超）があるため、CMRFの有無に関わらずALD（アルコール関連肝疾患）と診断されます。※飲む頻度が少なくても1回量が極端に多く、週の合計が基準を超える場合もALDに分類されます。`
-      };
-    }
-
-    if (cmrfCount === 0) {
-      return {
-        id: 'cryptogenic',
-        title: "成因不明SLD (Cryptogenic SLD)",
-        color: "bg-gray-200 text-gray-800 border-gray-400",
-        desc: "過度な飲酒がなく、心代謝系危険因子(CMRF)も一つも満たさず、その他の原因も不明な脂肪性肝疾患です。"
-      };
-    }
-
-    if (weeklyAlcohol < thresholds.masld) {
-      return {
-        id: 'masld',
-        title: "MASLD (代謝機能障害関連脂肪性肝疾患)",
-        color: "bg-blue-100 text-blue-800 border-blue-400",
-        desc: `心代謝系危険因子(${cmrfCount}個)を有し、飲酒量が基準（女性140g/週、男性210g/週未満）に収まるためMASLDと診断されます。`
-      };
-    } else {
-      return {
-        id: 'metald',
-        title: "MetALD (代謝機能障害アルコール関連肝疾患)",
-        color: "bg-yellow-100 text-yellow-800 border-yellow-400",
-        desc: `心代謝系危険因子を有し、中等量の飲酒（女性140〜350g/週、男性210〜420g/週）を伴うためMetALDと診断されます。`
-      };
-    }
-  };
-
-  const currentDiagnosis = getDiagnosis();
-
-  // FIB-4 index の計算と評価
-  let fib4Score = null;
-  let fib4Evaluation = null;
-
-  if (fib4.age && fib4.ast && fib4.alt && fib4.plt) {
-    const age = parseFloat(fib4.age);
-    const ast = parseFloat(fib4.ast);
-    const alt = parseFloat(fib4.alt);
-    const plt = parseFloat(fib4.plt); // 入力は 万/μL
-
-    if (age > 0 && ast > 0 && alt > 0 && plt > 0) {
-      // 正確な計算式の適用: (Age * AST) / (Platelets[10^9/L] * sqrt(ALT))
-      // 血小板(万/μL)を(10^9/L)に変換するために10倍する
-      const pltInStandardUnit = plt * 10;
-      
-      const numerator = age * ast;
-      const denominator = pltInStandardUnit * Math.sqrt(alt);
-      const score = numerator / denominator;
-      
-      fib4Score = Math.round(score * 100) / 100;
-
-      // 評価ロジック (高齢者はカットオフが1.30 -> 2.00 になる)
-      const isElderly = age >= 66; 
-      const lowCutoff = isElderly ? 2.00 : 1.30;
-      
-      if (fib4Score >= 2.67) {
-        fib4Evaluation = {
-          risk: "高リスク",
-          color: "text-red-700 bg-red-50 border-red-200",
-          desc: "肝線維化が進展している可能性が高いです。消化器科・肝臓専門医へのコンサルテーション（紹介）が強く推奨されます。"
-        };
-      } else if (fib4Score >= lowCutoff) {
-        fib4Evaluation = {
-          risk: "中間リスク",
-          color: "text-amber-700 bg-amber-50 border-amber-200",
-          desc: `肝線維化の疑いがあります。二次評価（M2BPGi、Ⅳ型コラーゲン・7S、エラストグラフィなど）の実施が推奨されます。${isElderly ? '(※66歳以上のためカットオフ値2.0を適用)' : ''}`
-        };
-      } else {
-        fib4Evaluation = {
-          risk: "低リスク",
-          color: "text-green-700 bg-green-50 border-green-200",
-          desc: `現時点では肝線維化が進展している可能性は低いです。定期的な（1年ごと）再評価が推奨されます。${isElderly ? '(※66歳以上のためカットオフ値2.0を適用)' : ''}`
-        };
-      }
-    }
-  }
-
-  // 早期確定診断が出た場合の自動スクロール
-  useEffect(() => {
-    if (currentDiagnosis) {
-      const autoScrollIds = ['no_steatosis', 'other_causes', 'ald', 'masld', 'metald'];
-      
-      if (autoScrollIds.includes(currentDiagnosis.id)) {
-        setTimeout(() => {
-          if (resultRef.current) {
-            resultRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          }
-        }, 100);
-      }
-    }
-  }, [hasSteatosis, hasOtherCauses, isALD, cmrfCount]);
-
-  return (
-    <div className="min-h-screen bg-slate-50 p-4 md:p-6 font-sans text-slate-800 pb-32">
-      <div className="max-w-3xl mx-auto space-y-6">
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MASLD 診断補助アプリ</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="min-h-screen bg-slate-50 p-4 md:p-6 font-sans text-slate-800 pb-32">
+    <div class="max-w-3xl mx-auto space-y-6">
         
-        <header className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 text-center">
-          <h1 className="text-2xl md:text-3xl font-bold text-slate-800 flex items-center justify-center gap-2">
-            <Activity className="text-blue-600" />
-            MASLD 診断補助アプリ
-          </h1>
-          <p className="text-slate-500 mt-2 text-sm">2026年版ガイドライン対応</p>
+        <header class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 text-center">
+            <h1 class="text-2xl md:text-3xl font-bold text-slate-800 flex items-center justify-center gap-2">
+                <i data-lucide="activity" class="text-blue-600"></i>
+                MASLD 診断補助アプリ
+            </h1>
+            <p class="text-slate-500 mt-2 text-sm">2026年版ガイドライン対応</p>
         </header>
 
-        {/* Step 1: 基礎情報 */}
-        <section className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-          <h3 className="text-lg font-bold mb-4 flex items-center gap-2 border-b pb-2">
-            <span className="bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-sm">1</span>
-            基礎情報
-          </h3>
-          
-          <div className="space-y-5">
-            <div>
-              <label className="block text-sm font-semibold mb-2">性別（基準値の判定に使用）</label>
-              <div className="flex gap-2">
-                <button 
-                  onClick={() => setGender('male')}
-                  className={`flex-1 py-3 rounded-xl font-medium flex items-center justify-center gap-2 transition ${gender === 'male' ? 'bg-sky-600 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-                ><User size={18}/> 男性</button>
-                <button 
-                  onClick={() => setGender('female')}
-                  className={`flex-1 py-3 rounded-xl font-medium flex items-center justify-center gap-2 transition ${gender === 'female' ? 'bg-rose-500 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-                ><User size={18}/> 女性</button>
-              </div>
-            </div>
+        <section class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+            <h3 class="text-lg font-bold mb-4 flex items-center gap-2 border-b pb-2">
+                <span class="bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-sm">1</span>
+                基礎情報
+            </h3>
+            
+            <div class="space-y-5">
+                <div>
+                    <label class="block text-sm font-semibold mb-2">性別（基準値の判定に使用）</label>
+                    <div class="flex gap-2">
+                        <button id="btn-male" class="flex-1 py-3 rounded-xl font-medium flex items-center justify-center gap-2 transition" onclick="setGender('male')">
+                            <i data-lucide="user" class="w-5 h-5"></i> 男性
+                        </button>
+                        <button id="btn-female" class="flex-1 py-3 rounded-xl font-medium flex items-center justify-center gap-2 transition" onclick="setGender('female')">
+                            <i data-lucide="user" class="w-5 h-5"></i> 女性
+                        </button>
+                    </div>
+                </div>
 
-            <div>
-              <label className="block text-sm font-semibold mb-2">肝脂肪化の有無（エコー等で5%以上）</label>
-              <div className="flex gap-2">
-                <button 
-                  onClick={() => { setHasSteatosis(true); setHasOtherCauses(false); }}
-                  className={`flex-1 py-3 rounded-xl font-medium transition ${hasSteatosis === true ? 'bg-blue-600 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-                >あり</button>
-                <button 
-                  onClick={() => setHasSteatosis(false)}
-                  className={`flex-1 py-3 rounded-xl font-medium transition ${hasSteatosis === false ? 'bg-green-600 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-                >なし</button>
-              </div>
-            </div>
+                <div>
+                    <label class="block text-sm font-semibold mb-2">肝脂肪化の有無（エコー等で5%以上）</label>
+                    <div class="flex gap-2">
+                        <button id="btn-steatosis-yes" class="flex-1 py-3 rounded-xl font-medium transition" onclick="setSteatosis(true)">あり</button>
+                        <button id="btn-steatosis-no" class="flex-1 py-3 rounded-xl font-medium transition" onclick="setSteatosis(false)">なし</button>
+                    </div>
+                </div>
 
-            {hasSteatosis && (
-              <div className="p-4 bg-purple-50 rounded-xl border border-purple-100">
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input 
-                    type="checkbox" 
-                    checked={hasOtherCauses} 
-                    onChange={(e) => setHasOtherCauses(e.target.checked)}
-                    className="w-5 h-5 text-purple-600 rounded focus:ring-purple-500"
-                  />
-                  <span className="text-sm font-medium">その他の明確な成因（C型肝炎、薬物性、Wilson病など）がある</span>
-                </label>
-              </div>
-            )}
-          </div>
+                <div id="other-causes-wrapper" class="hidden p-4 bg-purple-50 rounded-xl border border-purple-100">
+                    <label class="flex items-center gap-3 cursor-pointer">
+                        <input type="checkbox" id="chk-other-causes" class="w-5 h-5 text-purple-600 rounded focus:ring-purple-500" onchange="setOtherCauses(this.checked)">
+                        <span class="text-sm font-medium">その他の明確な成因（C型肝炎、薬物性、Wilson病など）がある</span>
+                    </label>
+                </div>
+            </div>
         </section>
 
-        {/* Step 2: 飲酒量（条件付き表示） */}
-        {showDrinks && (
-          <section className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 animate-in fade-in slide-in-from-top-4">
-            <h3 className="text-lg font-bold mb-4 flex items-center justify-between border-b pb-2">
-              <div className="flex items-center gap-2">
-                <span className="bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-sm">2</span>
-                飲酒量の評価
-              </div>
-              <div className="text-right">
-                <div className="text-xs text-slate-500">純アルコール量</div>
-                <div className="text-lg font-bold text-blue-600">{weeklyAlcohol} <span className="text-sm text-slate-500 font-normal">g/週</span></div>
-              </div>
+        <section id="section-alcohol" class="hidden bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+            <h3 class="text-lg font-bold mb-4 flex items-center justify-between border-b pb-2">
+                <div class="flex items-center gap-2">
+                    <span class="bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-sm">2</span>
+                    飲酒量の評価
+                </div>
+                <div class="text-right">
+                    <div class="text-xs text-slate-500">純アルコール量</div>
+                    <div class="text-lg font-bold text-blue-600"><span id="val-weekly-alcohol">0</span> <span class="text-sm text-slate-500 font-normal">g/週</span></div>
+                </div>
             </h3>
 
-            <div className="mb-6">
-              <label className="block text-sm font-semibold mb-2">飲酒の頻度</label>
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
-                {FREQUENCIES.map(freq => (
-                  <button
-                    key={freq.id}
-                    onClick={() => {
-                      setFrequency(freq.id);
-                      if (freq.id === 'none') setDrinks({});
-                    }}
-                    className={`py-2 px-1 text-xs md:text-sm rounded-xl font-medium transition ${frequency === freq.id ? 'bg-amber-500 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-                  >
-                    {freq.name}
-                  </button>
-                ))}
-              </div>
+            <div class="mb-6">
+                <label class="block text-sm font-semibold mb-2">飲酒の頻度</label>
+                <div id="freq-buttons" class="grid grid-cols-2 md:grid-cols-5 gap-2">
+                    </div>
             </div>
 
-            {frequency !== 'none' && (
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <label className="block text-sm font-semibold">1日あたりの酒量（飲む日）</label>
-                  <div className="text-xs font-bold text-amber-600 bg-amber-50 px-2 py-1 rounded">計: {Math.round(alcoholPerDay * 10) / 10} g/日</div>
+            <div id="drinks-wrapper" class="hidden">
+                <div class="flex items-center justify-between mb-3">
+                    <label class="block text-sm font-semibold">1日あたりの酒量（飲む日）</label>
+                    <div class="text-xs font-bold text-amber-600 bg-amber-50 px-2 py-1 rounded">計: <span id="val-daily-alcohol">0</span> g/日</div>
                 </div>
                 
-                {/* コンパクトにまとめた酒量入力 UI */}
-                <div className="space-y-3">
-                  {DRINK_CATEGORIES.map(category => (
-                    <div key={category.id} className="p-3 border border-slate-200 rounded-xl bg-slate-50">
-                      <div className="flex items-center gap-2 mb-2 pb-2 border-b border-slate-200">
-                        <span className="text-lg">{category.icon}</span>
-                        <div className="text-sm font-bold text-slate-700">{category.name}</div>
-                      </div>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2">
-                        {category.options.map(option => (
-                          <div key={option.id} className="flex items-center justify-between bg-white p-2 rounded-lg border border-slate-100">
-                            <div className="flex flex-col">
-                                <span className="text-sm font-medium">{option.label}</span>
-                                <span className="text-[10px] text-slate-400">{option.alcohol}g/杯</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <button 
-                                onClick={() => handleDrinkChange(option.id, -1)}
-                                className="w-7 h-7 rounded-full bg-slate-50 border border-slate-300 flex items-center justify-center text-slate-600 hover:bg-slate-100 disabled:opacity-30 transition-opacity"
-                                disabled={!drinks[option.id]}
-                              >
-                                <Minus size={14} />
-                              </button>
-                              <span className="w-4 text-center font-bold text-slate-700">{drinks[option.id] || 0}</span>
-                              <button 
-                                onClick={() => handleDrinkChange(option.id, 1)}
-                                className="w-7 h-7 rounded-full bg-slate-50 border border-slate-300 flex items-center justify-center text-slate-600 hover:bg-slate-100 transition-colors"
-                              >
-                                <Plus size={14} />
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+                <div id="drinks-list" class="space-y-3">
                     </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            
-            {isALD && (
-              <div className="mt-4 p-4 bg-red-50 text-red-800 rounded-xl flex items-start gap-3 border border-red-200 animate-in fade-in">
-                <AlertCircle className="shrink-0 mt-0.5" />
-                <div>
-                  <p className="font-bold mb-1">ALD基準超過</p>
-                  <p className="text-sm">飲酒量がALDの基準（{gender === 'male' ? '男性420g/週' : '女性350g/週'}超）に達しました。CMRFの有無に関わらずALDと判定されるため、以降の入力は不要です。</p>
-                </div>
-              </div>
-            )}
-          </section>
-        )}
+            </div>
 
-        {/* Step 3: CMRF（条件付き表示） */}
-        {showCMRF && (
-          <section className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 animate-in fade-in slide-in-from-top-4">
-            <h3 className="text-lg font-bold mb-4 flex items-center justify-between border-b pb-2">
-              <div className="flex items-center gap-2">
-                <span className="bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-sm">3</span>
-                心代謝系危険因子 (CMRF)
-              </div>
-              <span className="text-sm font-medium bg-slate-100 px-3 py-1 rounded-full text-slate-600">
-                該当: {cmrfCount} 個
-              </span>
+            <div id="ald-warning" class="hidden mt-4 p-4 bg-red-50 text-red-800 rounded-xl flex items-start gap-3 border border-red-200">
+                <i data-lucide="alert-circle" class="shrink-0 mt-0.5"></i>
+                <div>
+                    <p class="font-bold mb-1">ALD基準超過</p>
+                    <p id="ald-warning-text" class="text-sm"></p>
+                </div>
+            </div>
+        </section>
+
+        <section id="section-cmrf" class="hidden bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+            <h3 class="text-lg font-bold mb-4 flex items-center justify-between border-b pb-2">
+                <div class="flex items-center gap-2">
+                    <span class="bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-sm">3</span>
+                    心代謝系危険因子 (CMRF)
+                </div>
+                <span class="text-sm font-medium bg-slate-100 px-3 py-1 rounded-full text-slate-600">
+                    該当: <span id="val-cmrf-count">0</span> 個
+                </span>
             </h3>
 
-            <div className="space-y-3">
-              {/* 体格 */}
-              <label className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition ${cmrf.body ? 'bg-blue-50 border-blue-300' : 'border-slate-200 hover:bg-slate-50'}`}>
-                <input type="checkbox" checked={cmrf.body} onChange={() => handleCmrfChange('body')} className="w-5 h-5 mt-0.5 text-blue-600 rounded focus:ring-blue-500" />
-                <div className="w-full">
-                  <div className="font-bold text-sm mb-1">体格 (いずれか1つ以上)</div>
-                  <ul className="text-xs text-slate-500 list-disc pl-4 space-y-0.5">
-                    <li>BMI 23 kg/m² 以上</li>
-                    <li>ウエスト周囲長 <span className="font-bold text-rose-600">{gender === 'male' ? '男性 94cm' : '女性 80cm'}</span> 超</li>
-                  </ul>
-                </div>
-              </label>
+            <div class="space-y-3">
+                <label id="lbl-cmrf-body" class="flex items-start gap-3 p-3 rounded-xl border border-slate-200 cursor-pointer transition hover:bg-slate-50">
+                    <input type="checkbox" id="chk-body" class="w-5 h-5 mt-0.5" onchange="toggleCmrf('body', this.checked)">
+                    <div class="w-full">
+                        <div class="font-bold text-sm mb-1">体格 (いずれか1つ以上)</div>
+                        <ul class="text-xs text-slate-500 list-disc pl-4 space-y-0.5">
+                            <li>BMI 23 kg/m² 以上</li>
+                            <li>ウエスト周囲長 <span id="text-waist" class="font-bold text-rose-600">男性 94cm</span> 超</li>
+                        </ul>
+                    </div>
+                </label>
 
-              {/* 糖代謝 */}
-              <label className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition ${cmrf.glucose ? 'bg-blue-50 border-blue-300' : 'border-slate-200 hover:bg-slate-50'}`}>
-                <input type="checkbox" checked={cmrf.glucose} onChange={() => handleCmrfChange('glucose')} className="w-5 h-5 mt-0.5 text-blue-600 rounded focus:ring-blue-500" />
-                <div className="w-full">
-                  <div className="font-bold text-sm mb-1">糖代謝 (いずれか1つ以上)</div>
-                  <ul className="text-xs text-slate-500 list-disc pl-4 space-y-0.5">
-                    <li>空腹時血糖 100 mg/dL 以上</li>
-                    <li>食後2時間血糖 140 mg/dL 以上</li>
-                    <li>HbA1c 5.7% 以上</li>
-                    <li>2型糖尿病 または 糖尿病治療中</li>
-                  </ul>
-                </div>
-              </label>
+                <label id="lbl-cmrf-glucose" class="flex items-start gap-3 p-3 rounded-xl border border-slate-200 cursor-pointer transition hover:bg-slate-50">
+                    <input type="checkbox" id="chk-glucose" class="w-5 h-5 mt-0.5" onchange="toggleCmrf('glucose', this.checked)">
+                    <div class="w-full">
+                        <div class="font-bold text-sm mb-1">糖代謝 (いずれか1つ以上)</div>
+                        <ul class="text-xs text-slate-500 list-disc pl-4 space-y-0.5">
+                            <li>空腹時血糖 100 mg/dL 以上</li>
+                            <li>食後2時間血糖 140 mg/dL 以上</li>
+                            <li>HbA1c 5.7% 以上</li>
+                            <li>2型糖尿病 または 糖尿病治療中</li>
+                        </ul>
+                    </div>
+                </label>
 
-              {/* 血圧 */}
-              <label className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition ${cmrf.bp ? 'bg-blue-50 border-blue-300' : 'border-slate-200 hover:bg-slate-50'}`}>
-                <input type="checkbox" checked={cmrf.bp} onChange={() => handleCmrfChange('bp')} className="w-5 h-5 mt-0.5 text-blue-600 rounded focus:ring-blue-500" />
-                <div className="w-full">
-                  <div className="font-bold text-sm mb-1">血圧 (いずれか1つ以上)</div>
-                  <ul className="text-xs text-slate-500 list-disc pl-4 space-y-0.5">
-                    <li>収縮期血圧 130 mmHg 以上</li>
-                    <li>拡張期血圧 85 mmHg 以上</li>
-                    <li>高血圧治療中</li>
-                  </ul>
-                </div>
-              </label>
+                <label id="lbl-cmrf-bp" class="flex items-start gap-3 p-3 rounded-xl border border-slate-200 cursor-pointer transition hover:bg-slate-50">
+                    <input type="checkbox" id="chk-bp" class="w-5 h-5 mt-0.5" onchange="toggleCmrf('bp', this.checked)">
+                    <div class="w-full">
+                        <div class="font-bold text-sm mb-1">血圧 (いずれか1つ以上)</div>
+                        <ul class="text-xs text-slate-500 list-disc pl-4 space-y-0.5">
+                            <li>収縮期血圧 130 mmHg 以上</li>
+                            <li>拡張期血圧 85 mmHg 以上</li>
+                            <li>高血圧治療中</li>
+                        </ul>
+                    </div>
+                </label>
 
-              {/* 中性脂肪 */}
-              <label className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition ${cmrf.tg ? 'bg-blue-50 border-blue-300' : 'border-slate-200 hover:bg-slate-50'}`}>
-                <input type="checkbox" checked={cmrf.tg} onChange={() => handleCmrfChange('tg')} className="w-5 h-5 mt-0.5 text-blue-600 rounded focus:ring-blue-500" />
-                <div className="w-full">
-                  <div className="font-bold text-sm mb-1">中性脂肪 (いずれか1つ以上)</div>
-                  <ul className="text-xs text-slate-500 list-disc pl-4 space-y-0.5">
-                    <li>空腹時中性脂肪 150 mg/dL 以上</li>
-                    <li>脂質異常症治療中</li>
-                  </ul>
-                </div>
-              </label>
+                <label id="lbl-cmrf-tg" class="flex items-start gap-3 p-3 rounded-xl border border-slate-200 cursor-pointer transition hover:bg-slate-50">
+                    <input type="checkbox" id="chk-tg" class="w-5 h-5 mt-0.5" onchange="toggleCmrf('tg', this.checked)">
+                    <div class="w-full">
+                        <div class="font-bold text-sm mb-1">中性脂肪 (いずれか1つ以上)</div>
+                        <ul class="text-xs text-slate-500 list-disc pl-4 space-y-0.5">
+                            <li>空腹時中性脂肪 150 mg/dL 以上</li>
+                            <li>脂質異常症治療中</li>
+                        </ul>
+                    </div>
+                </label>
 
-              {/* HDLコレステロール */}
-              <label className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition ${cmrf.hdl ? 'bg-blue-50 border-blue-300' : 'border-slate-200 hover:bg-slate-50'}`}>
-                <input type="checkbox" checked={cmrf.hdl} onChange={() => handleCmrfChange('hdl')} className="w-5 h-5 mt-0.5 text-blue-600 rounded focus:ring-blue-500" />
-                <div className="w-full">
-                  <div className="font-bold text-sm mb-1">HDLコレステロール (いずれか1つ以上)</div>
-                  <ul className="text-xs text-slate-500 list-disc pl-4 space-y-0.5">
-                    <li>HDL-C <span className="font-bold text-rose-600">{gender === 'male' ? '男性 40 mg/dL' : '女性 50 mg/dL'}</span> 以下</li>
-                    <li>脂質異常症治療中</li>
-                  </ul>
-                </div>
-              </label>
+                <label id="lbl-cmrf-hdl" class="flex items-start gap-3 p-3 rounded-xl border border-slate-200 cursor-pointer transition hover:bg-slate-50">
+                    <input type="checkbox" id="chk-hdl" class="w-5 h-5 mt-0.5" onchange="toggleCmrf('hdl', this.checked)">
+                    <div class="w-full">
+                        <div class="font-bold text-sm mb-1">HDLコレステロール (いずれか1つ以上)</div>
+                        <ul class="text-xs text-slate-500 list-disc pl-4 space-y-0.5">
+                            <li>HDL-C <span id="text-hdl" class="font-bold text-rose-600">男性 40 mg/dL</span> 以下</li>
+                            <li>脂質異常症治療中</li>
+                        </ul>
+                    </div>
+                </label>
             </div>
-          </section>
-        )}
+        </section>
 
-        {/* Step 4: 診断結果（いずれかの判定が出た場合のみ表示） */}
-        {currentDiagnosis && (
-          <div ref={resultRef} className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
-            <section className={`p-6 rounded-2xl border-2 shadow-sm transition-all duration-500 ${currentDiagnosis.color}`}>
-              <h3 className="text-lg font-bold mb-3 flex items-center gap-2">
-                <span className="bg-white text-slate-800 w-6 h-6 rounded-full flex items-center justify-center text-sm shadow-sm">
-                  <CheckCircle size={16} />
-                </span>
-                診断結果
-              </h3>
-              <div className="text-2xl md:text-3xl font-bold mb-3">{currentDiagnosis.title}</div>
-              <p className="text-sm font-medium opacity-90 leading-relaxed bg-white/40 p-3 rounded-lg">{currentDiagnosis.desc}</p>
+        <div id="section-diagnosis-wrapper" class="hidden space-y-6">
+            <section id="diagnosis-card" class="p-6 rounded-2xl border-2 shadow-sm transition-all duration-500">
+                <h3 class="text-lg font-bold mb-3 flex items-center gap-2">
+                    <span class="bg-white text-slate-800 w-6 h-6 rounded-full flex items-center justify-center text-sm shadow-sm">
+                        <i data-lucide="check-circle" class="w-4 h-4"></i>
+                    </span>
+                    診断結果
+                </h3>
+                <div id="diag-title" class="text-2xl md:text-3xl font-bold mb-3"></div>
+                <p id="diag-desc" class="text-sm font-medium opacity-90 leading-relaxed bg-white/40 p-3 rounded-lg"></p>
             </section>
 
-            {/* FIB-4 index 計算機 (診断確定後に表示) */}
-            <section className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-              <div className="flex items-center gap-2 mb-4 border-b pb-2">
-                <Calculator className="text-blue-600" />
-                <h3 className="text-lg font-bold">FIB-4 index 計算（線維化リスク評価）</h3>
-              </div>
-              <p className="text-xs text-slate-500 mb-4">
-                MASLD/MetALD等の診断後、肝線維化の進行リスクを一次スクリーニングします。一般的な血液検査項目を入力してください。
-              </p>
+            <section class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                <div class="flex items-center gap-2 mb-4 border-b pb-2">
+                    <i data-lucide="calculator" class="text-blue-600"></i>
+                    <h3 class="text-lg font-bold">FIB-4 index 計算（線維化リスク評価）</h3>
+                </div>
+                <p class="text-xs text-slate-500 mb-4">MASLD/MetALD等の診断後、肝線維化の進行リスクを一次スクリーニングします。</p>
 
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">年齢 (歳)</label>
-                  <input 
-                    type="number" 
-                    value={fib4.age} 
-                    onChange={(e) => handleFib4Change('age', e.target.value)}
-                    className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                    placeholder="例: 65"
-                    min="0" max="120"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">AST (U/L)</label>
-                  <input 
-                    type="number" 
-                    value={fib4.ast} 
-                    onChange={(e) => handleFib4Change('ast', e.target.value)}
-                    className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                    placeholder="例: 40"
-                    min="0"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">ALT (U/L)</label>
-                  <input 
-                    type="number" 
-                    value={fib4.alt} 
-                    onChange={(e) => handleFib4Change('alt', e.target.value)}
-                    className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                    placeholder="例: 45"
-                    min="0"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">血小板 (万/μL)</label>
-                  <input 
-                    type="number" 
-                    value={fib4.plt} 
-                    onChange={(e) => handleFib4Change('plt', e.target.value)}
-                    className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                    placeholder="例: 18.5"
-                    min="0"
-                    step="0.1"
-                  />
-                </div>
-              </div>
-
-              {fib4Score !== null && (
-                <div className={`p-4 rounded-xl border animate-in fade-in ${fib4Evaluation.color}`}>
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                     <div>
-                      <div className="text-sm font-bold opacity-80 mb-1">スコア</div>
-                      <div className="text-3xl font-black">{fib4Score}</div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">年齢 (歳)</label>
+                        <input type="number" id="fib-age" oninput="calculateFib4()" class="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="例: 65">
                     </div>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <ArrowRight size={16} />
-                        <span className="font-bold text-lg">{fib4Evaluation.risk}</span>
-                      </div>
-                      <p className="text-sm font-medium opacity-90">{fib4Evaluation.desc}</p>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">AST (U/L)</label>
+                        <input type="number" id="fib-ast" oninput="calculateFib4()" class="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="例: 40">
                     </div>
-                  </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">ALT (U/L)</label>
+                        <input type="number" id="fib-alt" oninput="calculateFib4()" class="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="例: 45">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">血小板 (万/μL)</label>
+                        <input type="number" id="fib-plt" oninput="calculateFib4()" class="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="例: 18.5" step="0.1">
+                    </div>
                 </div>
-              )}
-            </section>
-          </div>
-        )}
 
-      </div>
+                <div id="fib4-result" class="hidden p-4 rounded-xl border">
+                    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div>
+                            <div class="text-sm font-bold opacity-80 mb-1">スコア</div>
+                            <div id="fib4-score-text" class="text-3xl font-black"></div>
+                        </div>
+                        <div class="flex-1">
+                            <div class="flex items-center gap-2 mb-1">
+                                <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                                <span id="fib4-risk-text" class="font-bold text-lg"></span>
+                            </div>
+                            <p id="fib4-desc-text" class="text-sm font-medium opacity-90"></p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
     </div>
-  );
-}
+
+    <script>
+        // --- データ定義 ---
+        const DRINK_CATEGORIES = [
+            { id: 'beer', name: 'ビール・発泡酒', icon: '🍺', options: [{ id: 'beer_350', label: '350ml缶', alcohol: 14 }, { id: 'beer_500', label: '500ml缶', alcohol: 20 }] },
+            { id: 'chuhai_5', name: 'チューハイ (5%前後)', icon: '🍋', options: [{ id: 'chuhai5_350', label: '350ml缶', alcohol: 14 }, { id: 'chuhai5_500', label: '500ml缶', alcohol: 20 }] },
+            { id: 'chuhai_7', name: 'チューハイ (7%前後)', icon: '⚡️', options: [{ id: 'chuhai7_350', label: '350ml缶', alcohol: 19.6 }, { id: 'chuhai7_500', label: '500ml缶', alcohol: 28 }] },
+            { id: 'chuhai_9', name: 'ストロング系 (9%前後)', icon: '🔥', options: [{ id: 'chuhai9_350', label: '350ml缶', alcohol: 25.2 }, { id: 'chuhai9_500', label: '500ml缶', alcohol: 36 }] },
+            { id: 'others', name: 'その他のお酒 (1杯/1合あたり)', icon: '🍷', options: [{ id: 'wine', label: 'ワイン(グラス)', alcohol: 11.5 }, { id: 'sake', label: '日本酒(1合)', alcohol: 21.6 }, { id: 'shochu', label: '焼酎・ハイボール', alcohol: 14 }] }
+        ];
+
+        const FREQUENCIES = [
+            { id: 'none', name: '飲まない', daysPerWeek: 0 },
+            { id: 'rarely', name: '機会飲酒', daysPerWeek: 0.5 },
+            { id: '2-3', name: '週2〜3日', daysPerWeek: 2.5 },
+            { id: '4-5', name: '週4〜5日', daysPerWeek: 4.5 },
+            { id: 'everyday', name: 'ほぼ毎日', daysPerWeek: 7 },
+        ];
+
+        // --- 状態（State） ---
+        let state = {
+            gender: 'male',
+            hasSteatosis: null,
+            hasOtherCauses: false,
+            frequency: 'none',
+            drinks: {},
+            cmrf: { body: false, glucose: false, bp: false, tg: false, hdl: false }
+        };
+
+        // --- 初期化処理 ---
+        function init() {
+            lucide.createIcons();
+            
+            // 頻度ボタンの生成
+            const freqContainer = document.getElementById('freq-buttons');
+            freqContainer.innerHTML = FREQUENCIES.map(f => 
+                `<button id="btn-freq-${f.id}" onclick="setFrequency('${f.id}')" class="py-2 px-1 text-xs md:text-sm rounded-xl font-medium transition bg-slate-100 text-slate-600 hover:bg-slate-200">${f.name}</button>`
+            ).join('');
+
+            // お酒リストの生成
+            const drinksContainer = document.getElementById('drinks-list');
+            drinksContainer.innerHTML = DRINK_CATEGORIES.map(cat => `
+                <div class="p-3 border border-slate-200 rounded-xl bg-slate-50">
+                    <div class="flex items-center gap-2 mb-2 pb-2 border-b border-slate-200">
+                        <span class="text-lg">${cat.icon}</span>
+                        <div class="text-sm font-bold text-slate-700">${cat.name}</div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2">
+                        ${cat.options.map(opt => `
+                            <div class="flex items-center justify-between bg-white p-2 rounded-lg border border-slate-100">
+                                <div class="flex flex-col">
+                                    <span class="text-sm font-medium">${opt.label}</span>
+                                    <span class="text-[10px] text-slate-400">${opt.alcohol}g/杯</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <button onclick="changeDrink('${opt.id}', -1)" class="w-7 h-7 rounded-full bg-slate-50 border border-slate-300 flex items-center justify-center text-slate-600 hover:bg-slate-100 transition-colors">
+                                        <i data-lucide="minus" class="w-3 h-3"></i>
+                                    </button>
+                                    <span id="count-${opt.id}" class="w-4 text-center font-bold text-slate-700">0</span>
+                                    <button onclick="changeDrink('${opt.id}', 1)" class="w-7 h-7 rounded-full bg-slate-50 border border-slate-300 flex items-center justify-center text-slate-600 hover:bg-slate-100 transition-colors">
+                                        <i data-lucide="plus" class="w-3 h-3"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `).join('');
+            
+            lucide.createIcons(); // 動的生成したアイコンを反映
+            updateUI();
+        }
+
+        // --- 状態更新関数 ---
+        function setGender(g) { state.gender = g; updateUI(); }
+        function setSteatosis(val) { 
+            state.hasSteatosis = val; 
+            if(val === false) state.hasOtherCauses = false;
+            updateUI(); 
+        }
+        function setOtherCauses(val) { state.hasOtherCauses = val; updateUI(); }
+        function setFrequency(freq) { 
+            state.frequency = freq; 
+            if(freq === 'none') state.drinks = {};
+            updateUI(); 
+        }
+        function changeDrink(id, delta) {
+            const current = state.drinks[id] || 0;
+            const next = Math.max(0, current + delta);
+            state.drinks[id] = next;
+            updateUI();
+        }
+        function toggleCmrf(key, checked) {
+            state.cmrf[key] = checked;
+            updateUI();
+        }
+
+        // --- UI一括更新（Reactのrender相当） ---
+        function updateUI() {
+            // 1. 男女ボタンのスタイル
+            document.getElementById('btn-male').className = `flex-1 py-3 rounded-xl font-medium flex items-center justify-center gap-2 transition ${state.gender === 'male' ? 'bg-sky-600 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`;
+            document.getElementById('btn-female').className = `flex-1 py-3 rounded-xl font-medium flex items-center justify-center gap-2 transition ${state.gender === 'female' ? 'bg-rose-500 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`;
+            
+            // 基準値テキストの更新
+            document.getElementById('text-waist').innerText = state.gender === 'male' ? '男性 94cm' : '女性 80cm';
+            document.getElementById('text-hdl').innerText = state.gender === 'male' ? '男性 40 mg/dL' : '女性 50 mg/dL';
+
+            // 2. 脂肪肝ボタンのスタイルと「その他成因」の表示
+            document.getElementById('btn-steatosis-yes').className = `flex-1 py-3 rounded-xl font-medium transition ${state.hasSteatosis === true ? 'bg-blue-600 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`;
+            document.getElementById('btn-steatosis-no').className = `flex-1 py-3 rounded-xl font-medium transition ${state.hasSteatosis === false ? 'bg-green-600 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`;
+            
+            document.getElementById('other-causes-wrapper').style.display = state.hasSteatosis === true ? 'block' : 'none';
+            document.getElementById('chk-other-causes').checked = state.hasOtherCauses;
+
+            // --- 計算ロジック ---
+            const daysPerWeek = FREQUENCIES.find(f => f.id === state.frequency)?.daysPerWeek || 0;
+            let alcoholPerDay = 0;
+            
+            DRINK_CATEGORIES.forEach(cat => {
+                cat.options.forEach(opt => {
+                    const count = state.drinks[opt.id] || 0;
+                    alcoholPerDay += opt.alcohol * count;
+                    // カウンターの表示更新
+                    const countEl = document.getElementById(`count-${opt.id}`);
+                    if(countEl) countEl.innerText = count;
+                });
+            });
+
+            const weeklyAlcohol = Math.round(alcoholPerDay * daysPerWeek * 10) / 10;
+            const cmrfCount = Object.values(state.cmrf).filter(Boolean).length;
+            
+            const thresholds = state.gender === 'female' ? { masld: 140, metald: 350 } : { masld: 210, metald: 420 };
+            const isALD = weeklyAlcohol > thresholds.metald;
+
+            // 表示制御フラグ
+            const showDrinks = state.hasSteatosis === true && !state.hasOtherCauses;
+            const showCMRF = showDrinks && !isALD;
+
+            // 3. 飲酒セクションの更新
+            document.getElementById('section-alcohol').style.display = showDrinks ? 'block' : 'none';
+            document.getElementById('val-weekly-alcohol').innerText = weeklyAlcohol;
+            document.getElementById('val-daily-alcohol').innerText = Math.round(alcoholPerDay * 10) / 10;
+            
+            FREQUENCIES.forEach(f => {
+                const btn = document.getElementById(`btn-freq-${f.id}`);
+                if(btn) btn.className = `py-2 px-1 text-xs md:text-sm rounded-xl font-medium transition ${state.frequency === f.id ? 'bg-amber-500 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`;
+            });
+            document.getElementById('drinks-wrapper').style.display = state.frequency !== 'none' ? 'block' : 'none';
+
+            // ALD警告
+            const aldWarn = document.getElementById('ald-warning');
+            if (isALD) {
+                aldWarn.style.display = 'flex';
+                document.getElementById('ald-warning-text').innerText = `飲酒量がALDの基準（${state.gender === 'male' ? '男性420g/週' : '女性350g/週'}超）に達しました。CMRFの有無に関わらずALDと判定されるため、以降の入力は不要です。`;
+            } else {
+                aldWarn.style.display = 'none';
+            }
+
+            // 4. CMRFセクションの更新
+            document.getElementById('section-cmrf').style.display = showCMRF ? 'block' : 'none';
+            document.getElementById('val-cmrf-count').innerText = cmrfCount;
+            
+            ['body', 'glucose', 'bp', 'tg', 'hdl'].forEach(key => {
+                const isChecked = state.cmrf[key];
+                const lbl = document.getElementById(`lbl-cmrf-${key}`);
+                if(lbl) lbl.className = `flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition ${isChecked ? 'bg-blue-50 border-blue-300' : 'border-slate-200 hover:bg-slate-50'}`;
+            });
+
+            // 5. 診断結果の判定と表示
+            let diag = null;
+            if (state.hasSteatosis !== null) {
+                if (state.hasSteatosis === false) {
+                    diag = { title: "脂肪肝なし", color: "bg-green-100 text-green-800 border-green-400", desc: "画像または組織学的に肝脂肪化を認めないため、SLD（脂肪性肝疾患）には該当しません。" };
+                } else if (state.hasOtherCauses) {
+                    diag = { title: "特定成因SLD", color: "bg-purple-100 text-purple-800 border-purple-400", desc: "ウイルス性（HCV等）、薬物性、単一遺伝子病などの特定の原因による脂肪性肝疾患です。" };
+                } else if (isALD) {
+                    diag = { title: "ALD (アルコール関連肝疾患)", color: "bg-red-100 text-red-800 border-red-400", desc: `過剰な飲酒（女性350g/週超、男性420g/週超）があるため、CMRFの有無に関わらずALDと診断されます。` };
+                } else if (cmrfCount === 0) {
+                    diag = { title: "成因不明SLD (Cryptogenic SLD)", color: "bg-gray-200 text-gray-800 border-gray-400", desc: "過度な飲酒がなく、心代謝系危険因子(CMRF)も一つも満たさず、その他の原因も不明な脂肪性肝疾患です。" };
+                } else if (weeklyAlcohol < thresholds.masld) {
+                    diag = { title: "MASLD (代謝機能障害関連脂肪性肝疾患)", color: "bg-blue-100 text-blue-800 border-blue-400", desc: `心代謝系危険因子(${cmrfCount}個)を有し、飲酒量が基準（女性140g/週、男性210g/週未満）に収まるためMASLDと診断されます。` };
+                } else {
+                    diag = { title: "MetALD (代謝機能障害アルコール関連肝疾患)", color: "bg-yellow-100 text-yellow-800 border-yellow-400", desc: `心代謝系危険因子を有し、中等量の飲酒（女性140〜350g/週、男性210〜420g/週）を伴うためMetALDと診断されます。` };
+                }
+            }
+
+            const diagWrapper = document.getElementById('section-diagnosis-wrapper');
+            if (diag) {
+                diagWrapper.style.display = 'block';
+                document.getElementById('diag-title').innerText = diag.title;
+                document.getElementById('diag-desc').innerText = diag.desc;
+                document.getElementById('diagnosis-card').className = `p-6 rounded-2xl border-2 shadow-sm transition-all duration-500 ${diag.color}`;
+            } else {
+                diagWrapper.style.display = 'none';
+            }
+            
+            calculateFib4();
+        }
+
+        // --- FIB-4 index 計算 ---
+        function calculateFib4() {
+            const age = parseFloat(document.getElementById('fib-age').value);
+            const ast = parseFloat(document.getElementById('fib-ast').value);
+            const alt = parseFloat(document.getElementById('fib-alt').value);
+            const plt = parseFloat(document.getElementById('fib-plt').value);
+            
+            const resultBox = document.getElementById('fib4-result');
+
+            if (age > 0 && ast > 0 && alt > 0 && plt > 0) {
+                const pltInStandardUnit = plt * 10;
+                const score = (age * ast) / (pltInStandardUnit * Math.sqrt(alt));
+                const fib4Score = Math.round(score * 100) / 100;
+
+                const isElderly = age >= 66; 
+                const lowCutoff = isElderly ? 2.00 : 1.30;
+                
+                let evalData = {};
+                if (fib4Score >= 2.67) {
+                    evalData = { risk: "高リスク", color: "text-red-700 bg-red-50 border-red-200", desc: "肝線維化が進展している可能性が高いです。消化器科専門医への紹介が強く推奨されます。" };
+                } else if (fib4Score >= lowCutoff) {
+                    evalData = { risk: "中間リスク", color: "text-amber-700 bg-amber-50 border-amber-200", desc: `肝線維化の疑いがあります。二次評価の実施が推奨されます。${isElderly ? '(※66歳以上のためカットオフ値2.0を適用)' : ''}` };
+                } else {
+                    evalData = { risk: "低リスク", color: "text-green-700 bg-green-50 border-green-200", desc: `現時点では肝線維化が進展している可能性は低いです。${isElderly ? '(※66歳以上のためカットオフ値2.0を適用)' : ''}` };
+                }
+
+                resultBox.style.display = 'block';
+                resultBox.className = `p-4 rounded-xl border mt-4 ${evalData.color}`;
+                document.getElementById('fib4-score-text').innerText = fib4Score;
+                document.getElementById('fib4-risk-text').innerText = evalData.risk;
+                document.getElementById('fib4-desc-text').innerText = evalData.desc;
+            } else {
+                resultBox.style.display = 'none';
+            }
+        }
+
+        // ページ読み込み時に初期化
+        window.onload = init;
+    </script>
+</body>
+</html>
