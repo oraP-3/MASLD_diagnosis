@@ -4,6 +4,7 @@ export const MASLD_THRESHOLDS = Object.freeze({
   bmi: 23,
   waist: { male: 94, female: 80 },
   hba1c: 5.7,
+  fastingGlucose: 100,
   sbp: 130,
   dbp: 85,
   tg: 150,
@@ -68,6 +69,7 @@ export function deriveCmrf(input) {
   const bmi = toNumber(input.bmi);
   const waist = toNumber(input.waist);
   const hba1c = toNumber(input.hba1c);
+  const fastingGlucose = toNumber(input.fastingGlucose);
   const sbp = toNumber(input.sbp);
   const dbp = toNumber(input.dbp);
   const tg = toNumber(input.tg);
@@ -79,7 +81,11 @@ export function deriveCmrf(input) {
 
   let glucose = null;
   if (input.diagnosedDiabetes) glucose = true;
-  else if (hba1c !== null) glucose = hba1c >= MASLD_THRESHOLDS.hba1c;
+  else if (
+    (hba1c !== null && hba1c >= MASLD_THRESHOLDS.hba1c) ||
+    (fastingGlucose !== null && fastingGlucose >= MASLD_THRESHOLDS.fastingGlucose)
+  ) glucose = true;
+  else if (hba1c !== null && fastingGlucose !== null) glucose = false;
 
   let bp = null;
   if (input.antihypertensiveTreatment) bp = true;
@@ -105,6 +111,8 @@ export function deriveCmrf(input) {
 
 export function evaluateGlycemia(input) {
   const hba1c = toNumber(input.hba1c);
+  const fastingGlucose = toNumber(input.fastingGlucose);
+  const randomGlucose = toNumber(input.randomGlucose);
 
   if (input.diagnosedDiabetes) {
     if (hba1c === null) {
@@ -134,73 +142,95 @@ export function evaluateGlycemia(input) {
     };
   }
 
-  if (hba1c === null) {
+  const hba1cDiabetic = hba1c !== null && hba1c >= GLYCEMIA_THRESHOLDS.diabeticHba1c;
+  const fastingDiabetic = fastingGlucose !== null && fastingGlucose >= GLYCEMIA_THRESHOLDS.fastingGlucose;
+  const randomDiabetic = hba1cDiabetic && randomGlucose !== null && randomGlucose >= GLYCEMIA_THRESHOLDS.randomGlucose;
+  const showRandomGlucose = hba1cDiabetic && (!fastingDiabetic || randomGlucose !== null);
+
+  if (hba1cDiabetic && (fastingDiabetic || randomDiabetic)) {
+    const bloodParts = [];
+    if (fastingDiabetic) bloodParts.push(`空腹時血糖 ${fastingGlucose} mg/dL`);
+    if (randomDiabetic) bloodParts.push(`随時血糖 ${randomGlucose} mg/dL`);
+    return {
+      id: 'hba1c_and_glucose_diabetic_range',
+      title: 'HbA1c・血糖とも糖尿病型',
+      detail: `HbA1c ${hba1c.toFixed(1)}%は糖尿病型で、入力された血糖値のうち少なくとも一つ（${bloodParts.join('、')}）も糖尿病型です。同一採血で得られた場合は日本糖尿病学会の診断基準を満たします。本ツールでは検査日や症状を保持しないため、最終診断は臨床情報と併せて判断してください。`,
+      tone: 'bad',
+      needsGlucoseConfirmation: false,
+      showRandomGlucose,
+    };
+  }
+
+  if (hba1cDiabetic) {
+    const enteredBlood = [];
+    if (fastingGlucose !== null) enteredBlood.push(`空腹時血糖 ${fastingGlucose} mg/dL`);
+    if (randomGlucose !== null) enteredBlood.push(`随時血糖 ${randomGlucose} mg/dL`);
+
+    if (enteredBlood.length === 0) {
+      return {
+        id: 'hba1c_diabetic_range_needs_glucose',
+        title: 'HbA1cは糖尿病型 — 血糖確認待ち',
+        detail: `HbA1c ${hba1c.toFixed(1)}%は糖尿病型です。HbA1c単独では診断を確定せず、血糖値による確認が必要です。`,
+        tone: 'warn',
+        needsGlucoseConfirmation: true,
+        showRandomGlucose: true,
+      };
+    }
+
+    return {
+      id: 'hba1c_diabetic_range_glucose_below',
+      title: 'HbA1cは糖尿病型、血糖は糖尿病型未満',
+      detail: `HbA1c ${hba1c.toFixed(1)}%は糖尿病型ですが、${enteredBlood.join('、')}は糖尿病型の基準未満です。HbA1c単独では診断を確定せず、再検査等を臨床的に検討します。`,
+      tone: 'warn',
+      needsGlucoseConfirmation: true,
+      showRandomGlucose: true,
+    };
+  }
+
+  if (fastingDiabetic) {
+    const hba1cContext = hba1c === null ? 'HbA1cは未入力です。' : `HbA1c ${hba1c.toFixed(1)}%は6.5%未満です。`;
+    return {
+      id: 'fasting_glucose_diabetic_range_needs_confirmation',
+      title: '空腹時血糖は糖尿病型 — 診断確認が必要',
+      detail: `空腹時血糖 ${fastingGlucose} mg/dLは糖尿病型です。${hba1cContext} 血糖値が糖尿病型でも1回のみでは本ツール上は診断を確定せず、再検査や症状等を含めて臨床判断します。`,
+      tone: 'warn',
+      needsGlucoseConfirmation: false,
+    };
+  }
+
+  const cmrfParts = [];
+  if (hba1c !== null && hba1c >= MASLD_THRESHOLDS.hba1c) cmrfParts.push(`HbA1c ${hba1c.toFixed(1)}%`);
+  if (fastingGlucose !== null && fastingGlucose >= MASLD_THRESHOLDS.fastingGlucose) cmrfParts.push(`空腹時血糖 ${fastingGlucose} mg/dL`);
+
+  if (cmrfParts.length > 0) {
+    return {
+      id: 'masld_glucose_cmrf',
+      title: '糖代謝異常 — MASLD CMRF',
+      detail: `${cmrfParts.join('、')}がMASLDの糖代謝CMRFに該当します。現在の入力では糖尿病型の基準には達していません。`,
+      tone: 'warn',
+      needsGlucoseConfirmation: false,
+    };
+  }
+
+  if (hba1c === null && fastingGlucose === null) {
     return {
       id: 'pending',
       title: '入力待ち',
-      detail: 'HbA1cを入力してください。',
+      detail: 'HbA1cまたは空腹時血糖を入力してください。',
       tone: 'neutral',
       needsGlucoseConfirmation: false,
     };
   }
 
-  if (hba1c < MASLD_THRESHOLDS.hba1c) {
-    return {
-      id: 'below_masld_cmrf',
-      title: 'HbA1cからは糖代謝CMRFなし',
-      detail: `HbA1c ${hba1c.toFixed(1)}%。この値単独ではMASLDの糖代謝CMRFには該当しません。`,
-      tone: 'good',
-      needsGlucoseConfirmation: false,
-    };
-  }
-
-  if (hba1c < GLYCEMIA_THRESHOLDS.diabeticHba1c) {
-    return {
-      id: 'masld_glucose_cmrf',
-      title: '糖代謝異常 — MASLD CMRF',
-      detail: `HbA1c ${hba1c.toFixed(1)}%。MASLDの糖代謝CMRFに該当しますが、HbA1cは糖尿病型（6.5%以上）には達していません。`,
-      tone: 'warn',
-      needsGlucoseConfirmation: false,
-    };
-  }
-
-  const fastingGlucose = toNumber(input.fastingGlucose);
-  const randomGlucose = toNumber(input.randomGlucose);
-  const enteredGlucose = [];
-  if (fastingGlucose !== null) enteredGlucose.push(`空腹時血糖 ${fastingGlucose} mg/dL`);
-  if (randomGlucose !== null) enteredGlucose.push(`随時血糖 ${randomGlucose} mg/dL`);
-
-  if (enteredGlucose.length === 0) {
-    return {
-      id: 'hba1c_diabetic_range_needs_glucose',
-      title: 'HbA1cは糖尿病型 — 血糖確認待ち',
-      detail: `HbA1c ${hba1c.toFixed(1)}%は糖尿病型です。HbA1c単独では診断を確定せず、空腹時または随時血糖による確認が必要です。`,
-      tone: 'warn',
-      needsGlucoseConfirmation: true,
-    };
-  }
-
-  const hasDiabeticGlucose =
-    (fastingGlucose !== null && fastingGlucose >= GLYCEMIA_THRESHOLDS.fastingGlucose) ||
-    (randomGlucose !== null && randomGlucose >= GLYCEMIA_THRESHOLDS.randomGlucose);
-  const glucoseSummary = enteredGlucose.join('、');
-
-  if (hasDiabeticGlucose) {
-    return {
-      id: 'hba1c_and_glucose_diabetic_range',
-      title: 'HbA1c・血糖とも糖尿病型',
-      detail: `HbA1c ${hba1c.toFixed(1)}%、${glucoseSummary}。入力された血糖値のうち少なくとも一つが糖尿病型です。HbA1cと糖尿病型の血糖値が同一採血で得られた場合は日本糖尿病学会の診断基準を満たします。本ツールでは検査日や症状を保持しないため、最終診断は臨床情報と併せて判断してください。`,
-      tone: 'bad',
-      needsGlucoseConfirmation: true,
-    };
-  }
-
+  const observed = [];
+  if (hba1c !== null) observed.push(`HbA1c ${hba1c.toFixed(1)}%`);
+  if (fastingGlucose !== null) observed.push(`空腹時血糖 ${fastingGlucose} mg/dL`);
   return {
-    id: 'hba1c_diabetic_range_glucose_below',
-    title: 'HbA1cは糖尿病型、血糖は糖尿病型未満',
-    detail: `HbA1c ${hba1c.toFixed(1)}%は糖尿病型ですが、${glucoseSummary}は糖尿病型の基準未満です。HbA1c単独では診断を確定せず、再検査等を臨床的に検討します。`,
-    tone: 'warn',
-    needsGlucoseConfirmation: true,
+    id: 'below_masld_cmrf',
+    title: '糖代謝CMRFなし',
+    detail: `${observed.join('、')}。現在入力された値ではMASLDの糖代謝CMRFには該当しません。`,
+    tone: 'good',
+    needsGlucoseConfirmation: false,
   };
 }
 
@@ -256,17 +286,6 @@ export function evaluateUricAcid(input) {
     };
   }
 
-  if (gout === null || gout === undefined) {
-    return {
-      id: 'needs_gout',
-      title: '高尿酸血症 — 痛風歴確認待ち',
-      detail: `尿酸 ${ua.toFixed(1)} mg/dL。痛風発作または痛風結節の有無で治療分岐が変わります。`,
-      tone: 'warn',
-      showContextQuestions: true,
-      showComplicationQuestion: false,
-    };
-  }
-
   if (gout === true) {
     return {
       id: 'gout_branch',
@@ -281,8 +300,19 @@ export function evaluateUricAcid(input) {
   if (ua >= URIC_ACID_THRESHOLDS.noComplicationConsideration) {
     return {
       id: 'asymptomatic_ge9',
-      title: '無症候性高尿酸血症 — 薬物療法を考慮',
-      detail: `尿酸 ${ua.toFixed(1)} mg/dL。合併症がなくても9.0 mg/dL以上では尿酸降下薬による治療を考慮する範囲です。自動的な投薬適応ではありません。`,
+      title: gout === false ? '無症候性高尿酸血症 — 薬物療法を考慮' : '高尿酸血症 — 薬物療法を考慮',
+      detail: `尿酸 ${ua.toFixed(1)} mg/dL。9.0 mg/dL以上では合併症の有無にかかわらず尿酸降下薬による治療を考慮する範囲です。痛風歴があれば治療文脈と目標の表示を更新します。自動的な投薬適応ではありません。`,
+      tone: 'warn',
+      showContextQuestions: true,
+      showComplicationQuestion: false,
+    };
+  }
+
+  if (gout === null || gout === undefined) {
+    return {
+      id: 'needs_gout',
+      title: '高尿酸血症 — 痛風歴確認待ち',
+      detail: `尿酸 ${ua.toFixed(1)} mg/dL。痛風発作または痛風結節の有無で治療分岐が変わります。`,
       tone: 'warn',
       showContextQuestions: true,
       showComplicationQuestion: false,
