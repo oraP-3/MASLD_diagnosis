@@ -1,4 +1,4 @@
-import { calculateBmi, deriveCmrf, classifySld, calculateFib4, evaluateFib4, evaluatePlatelets, shouldShowNit, interpretNit } from './clinical-rules.js';
+import { calculateBmi, deriveCmrf, evaluateGlycemia, classifySld, calculateFib4, evaluateFib4, evaluatePlatelets, shouldShowNit, interpretNit } from './clinical-rules.js';
 
 const DRINKS = [
   { id: 'beer', label: 'ビール・発泡酒 5%', unit: 'mL', gramsPerUnit: 0.04, step: 50, placeholder: '例 500' },
@@ -19,7 +19,7 @@ function boolRadio(name) { const v = radioValue(name); return v === 'true' ? tru
 function currentInput() {
   return {
     age: value('age'), sex: radioValue('sex'), bmi: value('bmi'), waist: value('waist'), sbp: value('sbp'), dbp: value('dbp'),
-    hba1c: value('hba1c'), tg: value('tg'), hdl: value('hdl'),
+    hba1c: value('hba1c'), glucoseType: value('glucoseType'), glucoseValue: value('glucoseValue'), tg: value('tg'), hdl: value('hdl'),
     antihypertensiveTreatment: checked('antihypertensiveTreatment'), diagnosedDiabetes: checked('diagnosedDiabetes'), lipidTreatment: checked('lipidTreatment'),
     steatosis: boolRadio('steatosis'), alcoholGWeek: value('alcoholGWeek'), otherCause: checked('otherCause'),
     ast: value('ast'), alt: value('alt'), plateletsWan: value('plateletsWan'),
@@ -42,6 +42,12 @@ function renderCmrf(cmrf) {
   }).join('');
   $('waistPrompt').classList.toggle('hidden', !cmrf.waistRelevant);
 }
+function renderGlycemia(input) {
+  const r = evaluateGlycemia(input);
+  $('glucoseConfirm').classList.toggle('hidden', !r.needsGlucoseConfirmation);
+  setResultCard($('glycemiaResult'), '糖代謝', r.title, r.detail, r.tone);
+}
+
 function renderSld(input, cmrf) { const r = classifySld(input, cmrf); setResultCard($('sldResult'), 'SLD分類', r.title, r.detail, resultClass(r.id)); }
 
 function renderFibrosis(input) {
@@ -68,7 +74,7 @@ function renderNit() {
     : '<p class="microcopy">利用可能なNITがあれば入力してください。未入力の検査を不足データとしては扱いません。</p>';
 }
 
-function renderAll() { const input = currentInput(); const cmrf = deriveCmrf(input); renderCmrf(cmrf); renderSld(input, cmrf); renderFibrosis(input); }
+function renderAll() { const input = currentInput(); const cmrf = deriveCmrf(input); renderCmrf(cmrf); renderGlycemia(input); renderSld(input, cmrf); renderFibrosis(input); }
 
 function setupDrinkHelper() {
   $('drinkRows').innerHTML = DRINKS.map(({ id, label, unit, gramsPerUnit, step, placeholder }) => `

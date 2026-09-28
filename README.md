@@ -4,7 +4,7 @@ Single-session, stateless clinical support tool for MASLD-related outpatient ass
 
 ## Current implementation status
 
-Phase A implements:
+Implemented:
 
 - BMI-first input with optional height/weight calculator
 - direct alcohol intake input (g/week) with optional beverage calculator
@@ -13,12 +13,12 @@ Phase A implements:
 - FIB-4 calculation with age-sensitive interpretation
 - platelet-based supportive fibrosis context
 - conditional optional second-line NIT interpretation
+- B1 glycemia engine: HbA1c interpretation, conditional glucose confirmation, and general HbA1c target context for diagnosed diabetes
 
 Not yet implemented:
 
 - hypertension treatment logic
 - lipid / modified Hisayama logic
-- diabetes treatment logic
 - hyperuricemia treatment logic
 - unified missing-data result dashboard
 
@@ -46,7 +46,7 @@ The test suite uses Node's built-in test runner; no package install is required.
 
 The current clinical contract is `docs/spec-v0.3.md`.
 
-Key Phase A rules are based on the Japanese 2026 MASLD diagnostic criteria and the 2026 evidence-based MASLD clinical practice guideline. Current authoritative guidelines and regulatory documents supersede repository interpretations if they change.
+Key Phase A rules are based on the Japanese 2026 MASLD diagnostic criteria and the 2026 evidence-based MASLD clinical practice guideline. B1 glycemia rules use the Japan Diabetes Society Clinical Practice Guideline for Diabetes 2024 for diabetic-type thresholds and general HbA1c target context. Current authoritative guidelines and regulatory documents supersede repository interpretations if they change.
 
 ## Non-goals
 

@@ -16,6 +16,13 @@ export const MASLD_THRESHOLDS = Object.freeze({
   plateletsWan: { highRiskBelow: 15, lowRiskAbove: 20 },
 });
 
+export const GLYCEMIA_THRESHOLDS = Object.freeze({
+  diabeticHba1c: 6.5,
+  fastingGlucose: 126,
+  randomGlucose: 200,
+  generalHba1cTarget: 7.0,
+});
+
 export const NIT_THRESHOLDS = Object.freeze({
   vcteKpa: 8,
   sweKpa: 8,
@@ -87,6 +94,105 @@ export function deriveCmrf(input) {
   const needsWaist = waistRelevant && waist === null;
 
   return { statuses, count, unknownKeys, hasAny: count > 0, waistRelevant, needsWaist, canRuleOutAll: count === 0 && unknownKeys.length === 0 };
+}
+
+function glucoseDiagnosticThreshold(type) {
+  if (type === 'fasting') return { value: GLYCEMIA_THRESHOLDS.fastingGlucose, label: '空腹時血糖' };
+  if (type === 'random') return { value: GLYCEMIA_THRESHOLDS.randomGlucose, label: '随時血糖' };
+  return null;
+}
+
+export function evaluateGlycemia(input) {
+  const hba1c = toNumber(input.hba1c);
+
+  if (input.diagnosedDiabetes) {
+    if (hba1c === null) {
+      return {
+        id: 'known_diabetes_no_hba1c',
+        title: '糖尿病（診断済み）',
+        detail: 'HbA1cを入力すると、一般的な血糖コントロール目標との位置づけを表示します。',
+        tone: 'neutral',
+        needsGlucoseConfirmation: false,
+      };
+    }
+    if (hba1c < GLYCEMIA_THRESHOLDS.generalHba1cTarget) {
+      return {
+        id: 'known_diabetes_general_target',
+        title: '糖尿病 — 一般目標内',
+        detail: `HbA1c ${hba1c.toFixed(1)}%。一般的な合併症予防目標（7.0%未満）の範囲内です。実際の目標は年齢・罹病期間・合併症・低血糖リスク等で個別化します。`,
+        tone: 'good',
+        needsGlucoseConfirmation: false,
+      };
+    }
+    return {
+      id: 'known_diabetes_above_general_target',
+      title: '糖尿病 — 一般目標を上回る',
+      detail: `HbA1c ${hba1c.toFixed(1)}%。一般的な合併症予防目標（7.0%未満）を上回ります。治療強化の要否は個別目標と低血糖リスク等を踏まえて臨床判断します。`,
+      tone: 'warn',
+      needsGlucoseConfirmation: false,
+    };
+  }
+
+  if (hba1c === null) {
+    return {
+      id: 'pending',
+      title: '入力待ち',
+      detail: 'HbA1cを入力してください。',
+      tone: 'neutral',
+      needsGlucoseConfirmation: false,
+    };
+  }
+
+  if (hba1c < MASLD_THRESHOLDS.hba1c) {
+    return {
+      id: 'below_masld_cmrf',
+      title: 'HbA1cからは糖代謝CMRFなし',
+      detail: `HbA1c ${hba1c.toFixed(1)}%。この値単独ではMASLDの糖代謝CMRFには該当しません。`,
+      tone: 'good',
+      needsGlucoseConfirmation: false,
+    };
+  }
+
+  if (hba1c < GLYCEMIA_THRESHOLDS.diabeticHba1c) {
+    return {
+      id: 'masld_glucose_cmrf',
+      title: '糖代謝異常 — MASLD CMRF',
+      detail: `HbA1c ${hba1c.toFixed(1)}%。MASLDの糖代謝CMRFに該当しますが、HbA1cは糖尿病型（6.5%以上）には達していません。`,
+      tone: 'warn',
+      needsGlucoseConfirmation: false,
+    };
+  }
+
+  const threshold = glucoseDiagnosticThreshold(input.glucoseType);
+  const glucose = toNumber(input.glucoseValue);
+
+  if (!threshold || glucose === null) {
+    return {
+      id: 'hba1c_diabetic_range_needs_glucose',
+      title: 'HbA1cは糖尿病型 — 血糖確認待ち',
+      detail: `HbA1c ${hba1c.toFixed(1)}%は糖尿病型です。HbA1c単独では診断を確定せず、血糖値による確認が必要です。`,
+      tone: 'warn',
+      needsGlucoseConfirmation: true,
+    };
+  }
+
+  if (glucose >= threshold.value) {
+    return {
+      id: 'hba1c_and_glucose_diabetic_range',
+      title: 'HbA1c・血糖とも糖尿病型',
+      detail: `HbA1c ${hba1c.toFixed(1)}%、${threshold.label} ${glucose} mg/dLはいずれも糖尿病型です。同一採血であれば日本糖尿病学会の診断基準を満たします。本ツールでは検査日や症状を保持しないため、最終診断は臨床情報と併せて判断してください。`,
+      tone: 'bad',
+      needsGlucoseConfirmation: true,
+    };
+  }
+
+  return {
+    id: 'hba1c_diabetic_range_glucose_below',
+    title: 'HbA1cは糖尿病型、血糖は糖尿病型未満',
+    detail: `HbA1c ${hba1c.toFixed(1)}%は糖尿病型ですが、${threshold.label} ${glucose} mg/dLは糖尿病型の基準未満です。HbA1c単独では診断を確定せず、再検査等を臨床的に検討します。`,
+    tone: 'warn',
+    needsGlucoseConfirmation: true,
+  };
 }
 
 export function classifySld(input, cmrf) {
