@@ -21,8 +21,10 @@ export const NIT_THRESHOLDS = Object.freeze({
   sweKpa: 8,
   sweMs: 1.6,
   mreKpa: 3.14,
+  mreF4Kpa: 4.45,
   elfLower: 9.2,
   elfUpper: 9.8,
+  elfF4: 11.8,
   type4Collagen7s: 3.8,
   m2bpgi: 1.0,
 });
@@ -143,26 +145,53 @@ export function shouldShowNit({ fib4Evaluation, plateletsWan }) {
 
 export function interpretNit(input) {
   const results = [];
-  const add = (key, label, value, cutoff, unit) => {
+  const add = (key, label, value, cutoff, unit, f4Cutoff = null) => {
     const n = toNumber(value);
     if (n === null) return;
-    results.push({ key, label, value: n, unit, status: n >= cutoff ? 'suggestive' : 'below', detail: n >= cutoff ? `≥F2を示唆する報告カットオフ（${cutoff} ${unit}）以上` : `≥F2を示唆する報告カットオフ（${cutoff} ${unit}）未満` });
+    if (f4Cutoff !== null && n >= f4Cutoff) {
+      results.push({
+        key, label, value: n, unit, status: 'f4', severityLabel: 'F4を示唆',
+        detail: `F4を示唆する報告カットオフ（${f4Cutoff} ${unit}）以上`
+      });
+      return;
+    }
+    if (n >= cutoff) {
+      results.push({
+        key, label, value: n, unit, status: 'f2', severityLabel: '≥F2を示唆',
+        detail: `≥F2を示唆する報告カットオフ（${cutoff} ${unit}）以上`
+      });
+      return;
+    }
+    results.push({
+      key, label, value: n, unit, status: 'below', severityLabel: '≥F2未満',
+      detail: `≥F2を示唆する報告カットオフ（${cutoff} ${unit}）未満`
+    });
   };
 
   add('vcte', 'VCTE / FibroScan', input.vcteKpa, NIT_THRESHOLDS.vcteKpa, 'kPa');
   if (input.sweUnit === 'ms') add('swe', 'SWE', input.swe, NIT_THRESHOLDS.sweMs, 'm/s');
   else add('swe', 'SWE', input.swe, NIT_THRESHOLDS.sweKpa, 'kPa');
-  add('mre', 'MRE', input.mreKpa, NIT_THRESHOLDS.mreKpa, 'kPa');
+  add('mre', 'MRE', input.mreKpa, NIT_THRESHOLDS.mreKpa, 'kPa', NIT_THRESHOLDS.mreF4Kpa);
   add('type4', 'IV型コラーゲン7S', input.type4Collagen7s, NIT_THRESHOLDS.type4Collagen7s, 'ng/mL');
   add('m2bpgi', 'M2BPGi', input.m2bpgi, NIT_THRESHOLDS.m2bpgi, 'C.O.I.');
 
   const elf = toNumber(input.elf);
   if (elf !== null) {
-    let detail, status;
-    if (elf < NIT_THRESHOLDS.elfLower) { detail = `報告されている≥F2閾値範囲（約${NIT_THRESHOLDS.elfLower}–${NIT_THRESHOLDS.elfUpper}）未満`; status = 'below'; }
-    else if (elf < NIT_THRESHOLDS.elfUpper) { detail = `報告されている≥F2閾値範囲（約${NIT_THRESHOLDS.elfLower}–${NIT_THRESHOLDS.elfUpper}）内`; status = 'borderline'; }
-    else { detail = `報告されている≥F2閾値範囲（約${NIT_THRESHOLDS.elfLower}–${NIT_THRESHOLDS.elfUpper}）以上`; status = 'suggestive'; }
-    results.push({ key: 'elf', label: 'ELF', value: elf, unit: '', status, detail });
+    let detail, status, severityLabel;
+    if (elf >= NIT_THRESHOLDS.elfF4) {
+      detail = `F4を示唆する報告カットオフ（${NIT_THRESHOLDS.elfF4}）以上`;
+      status = 'f4';
+      severityLabel = 'F4を示唆';
+    } else if (elf < NIT_THRESHOLDS.elfLower) {
+      detail = `報告されている≥F2閾値範囲（約${NIT_THRESHOLDS.elfLower}–${NIT_THRESHOLDS.elfUpper}）未満`;
+      status = 'below';
+      severityLabel = '≥F2未満';
+    } else {
+      detail = `報告されている≥F2閾値範囲（約${NIT_THRESHOLDS.elfLower}–${NIT_THRESHOLDS.elfUpper}）以上`;
+      status = 'f2';
+      severityLabel = '≥F2を示唆';
+    }
+    results.push({ key: 'elf', label: 'ELF', value: elf, unit: '', status, severityLabel, detail });
   }
   return results;
 }

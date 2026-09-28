@@ -236,7 +236,23 @@ input:focus, select:focus { outline: 3px solid rgba(36, 87, 214, .12); border-co
 }
 
 .nit-item strong { font-size: 13px; }
-.nit-item span { font-size: 12px; color: #475467; text-align: right; }
+.nit-item > div { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.nit-severity {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+}
+.nit-detail { font-size: 12px; color: #475467; text-align: right; }
+.nit-item.below { background: var(--good-soft); border-color: #b8e2d6; }
+.nit-item.below .nit-severity { background: #d7f0e8; color: var(--good); }
+.nit-item.f2 { background: var(--warn-soft); border-color: #efda9c; }
+.nit-item.f2 .nit-severity { background: #f8e7a8; color: var(--warn); }
+.nit-item.f4 { background: var(--bad-soft); border-color: #f0b8b3; }
+.nit-item.f4 .nit-severity { background: #f8d1cd; color: var(--bad); }
 .info-card { background: #fbfcfe; }
 .info-card p { color: var(--muted); margin-bottom: 0; line-height: 1.6; }
 

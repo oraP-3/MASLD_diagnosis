@@ -64,7 +64,7 @@ function renderNit() {
   if ($('nitPrompt').classList.contains('hidden')) { $('nitResults').innerHTML = ''; return; }
   const results = interpretNit({ vcteKpa: value('vcteKpa'), swe: value('swe'), sweUnit: value('sweUnit'), mreKpa: value('mreKpa'), elf: value('elf'), type4Collagen7s: value('type4Collagen7s'), m2bpgi: value('m2bpgi') });
   $('nitResults').innerHTML = results.length
-    ? results.map((item) => `<div class="nit-item"><strong>${item.label}: ${item.value}${item.unit ? ` ${item.unit}` : ''}</strong><span>${item.detail}</span></div>`).join('')
+    ? results.map((item) => `<div class="nit-item ${item.status}"><div><strong>${item.label}: ${item.value}${item.unit ? ` ${item.unit}` : ''}</strong><span class="nit-severity">${item.severityLabel}</span></div><span class="nit-detail">${item.detail}</span></div>`).join('')
     : '<p class="microcopy">利用可能なNITがあれば入力してください。未入力の検査を不足データとしては扱いません。</p>';
 }
 
