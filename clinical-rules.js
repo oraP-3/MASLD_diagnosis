@@ -89,7 +89,6 @@ export function deriveCmrf(input) {
 export function classifySld(input, cmrf) {
   if (input.steatosis === null || input.steatosis === undefined || input.steatosis === '') return { id: 'pending', title: '判定保留', detail: '肝脂肪化の有無を入力してください。' };
   if (input.steatosis === false || input.steatosis === 'false') return { id: 'no_sld', title: '肝脂肪化なし', detail: '現在の入力ではSLD分類の対象外です。' };
-  if (input.otherCause === true) return { id: 'specific_sld', title: '特定成因SLD', detail: 'ウイルス性・薬剤性など別の明確な成因を伴うSLDとして評価します。' };
 
   const sex = input.sex;
   const alcohol = toNumber(input.alcoholGWeek);
@@ -97,12 +96,15 @@ export function classifySld(input, cmrf) {
   if (alcohol === null || alcohol < 0) return { id: 'pending', title: '判定保留', detail: '純アルコール量（g/週）を入力してください。' };
 
   const threshold = MASLD_THRESHOLDS.alcohol[sex];
-  if (alcohol > threshold.aldMinExclusive) return { id: 'ald', title: 'ALD', detail: '飲酒量がALD域です。CMRFの有無にかかわらずアルコール関連肝疾患として評価します。' };
+  const coexistence = input.otherCause === true ? ' 他の明確な成因も併存します。' : '';
+  if (alcohol > threshold.aldMinExclusive) return { id: 'ald', title: input.otherCause ? 'ALD（他成因併存）' : 'ALD', detail: `飲酒量がALD域です。CMRFの有無にかかわらずアルコール関連肝疾患として評価します。${coexistence}` };
 
   if (cmrf.hasAny) {
-    if (alcohol < threshold.metaldMin) return { id: 'masld', title: 'MASLD', detail: `CMRF ${cmrf.count}項目を満たし、飲酒量はMASLD域です。` };
-    return { id: 'metald', title: 'MetALD', detail: `CMRF ${cmrf.count}項目を満たし、飲酒量はMetALD域です。` };
+    if (alcohol < threshold.metaldMin) return { id: 'masld', title: input.otherCause ? 'MASLD＋特定成因併存' : 'MASLD', detail: `CMRF ${cmrf.count}項目を満たし、飲酒量はMASLD域です。${coexistence}` };
+    return { id: 'metald', title: input.otherCause ? 'MetALD＋特定成因併存' : 'MetALD', detail: `CMRF ${cmrf.count}項目を満たし、飲酒量はMetALD域です。${coexistence}` };
   }
+
+  if (input.otherCause === true) return { id: 'specific_sld', title: '特定成因SLD', detail: 'CMRFを認めず、ウイルス性・薬剤性など別の明確な成因を伴うSLDとして評価します。' };
 
   if (cmrf.needsWaist) return { id: 'pending', title: '判定保留', detail: '他のCMRFを認めないため、腹囲を確認するとMASLD分類が確定できます。', missing: ['waist'] };
   if (!cmrf.canRuleOutAll) return { id: 'pending', title: '判定保留', detail: 'CMRF判定に必要な入力が不足しています。', missing: cmrf.unknownKeys };
