@@ -14,12 +14,12 @@ Implemented:
 - platelet-based supportive fibrosis context
 - conditional optional second-line NIT interpretation
 - B1 glycemia engine: HbA1c interpretation, conditional glucose confirmation, and general HbA1c target context for diagnosed diabetes
+- B3 uric-acid engine: hyperuricemia classification, conditional gout/stone context, 8/9 mg/dL treatment-consideration branches, and urate-treatment target context
 
 Not yet implemented:
 
 - hypertension treatment logic
 - lipid / modified Hisayama logic
-- hyperuricemia treatment logic
 - unified missing-data result dashboard
 
 The tool stores no patient data and contains no backend or local-storage persistence.
@@ -46,7 +46,7 @@ The test suite uses Node's built-in test runner; no package install is required.
 
 The current clinical contract is `docs/spec-v0.3.md`.
 
-Key Phase A rules are based on the Japanese 2026 MASLD diagnostic criteria and the 2026 evidence-based MASLD clinical practice guideline. B1 glycemia rules use the Japan Diabetes Society Clinical Practice Guideline for Diabetes 2024 for diabetic-type thresholds and general HbA1c target context. Current authoritative guidelines and regulatory documents supersede repository interpretations if they change.
+Key Phase A rules are based on the Japanese 2026 MASLD diagnostic criteria and the 2026 evidence-based MASLD clinical practice guideline. B1 glycemia rules use the Japan Diabetes Society Clinical Practice Guideline for Diabetes 2024. B3 uric-acid rules follow the B2 evidence lock based on the Japanese Society of Gout and Uric & Nucleic Acids third edition plus 2022 supplement. Current authoritative guidelines and regulatory documents supersede repository interpretations if they change.
 
 ## Non-goals
 
