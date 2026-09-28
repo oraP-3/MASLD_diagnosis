@@ -150,45 +150,138 @@ Treatment decisions remain with the clinician.
 
 ## 7. Logic 2 — Blood pressure
 
-Internal office-BP classification:
-- <120 and <80: normal
-- 120–129 and <80: elevated-normal
-- 130–139 or 80–89: high-normal
-- 140–159 or 90–99: grade I hypertension
-- 160–179 or 100–109: grade II hypertension
-- >=180 or >=110: grade III hypertension
+Evidence lock: see `docs/bp-evidence-lock-v0.1.md`.
 
-Use the higher SBP/DBP category.
+### Office-BP classification
 
-Risk classification may internally use:
-- cerebrovascular / cardiovascular disease
-- atrial fibrillation
-- diabetes
-- CKD with proteinuria
+Use the higher SBP / DBP category.
+
+- normal: SBP <120 and DBP <80
+- elevated-normal: SBP 120–129 and DBP <80
+- high-normal / elevated BP: SBP 130–139 and/or DBP 80–89
+- grade I hypertension: SBP 140–159 and/or DBP 90–99
+- grade II hypertension: SBP 160–179 and/or DBP 100–109
+- grade III hypertension: SBP >=180 and/or DBP >=110
+
+Diagnostic thresholds remain:
+- office hypertension: >=140/90 mmHg
+- home hypertension: >=135/85 mmHg
+
+A single office measurement is a classification input, not by itself proof of persistent hypertension.
+
+### Persistence / out-of-office confirmation
+
+For untreated office BP >=130/80, use a minimal confirmation state when current persistence is not already established:
+
+- elevated at another health check / office visit
+- elevated at home
+- not yet confirmed
+
+If not confirmed:
+- recommend home BP or another-day office measurement
+- keep the result as `needs confirmation` where persistence can change management
+
+Do not make a persistence question block urgent clinical assessment for markedly elevated BP or symptomatic patients.
+
+For patients already receiving antihypertensive treatment, do not ask whether hypertension is persistent; interpret the current BP in treatment context.
+
+### JSH2025 cardiovascular-risk strata
+
+Internal layer-2 risk factors:
 - age >=65
 - male sex
 - dyslipidemia
 - current smoking
 
-Do not display JSH Category I / II / III unless needed for transparency. Prefer a clinically readable explanation.
+Internal layer-3 / high-risk triggers:
+- prior cerebrovascular / cardiovascular disease
+- atrial fibrillation
+- diabetes
+- CKD with proteinuria
+- three or more layer-2 risk factors
 
-For untreated BP >=130/80, ask only if needed:
+Risk matrix:
 
-`Has elevated blood pressure been confirmed outside this single measurement?`
+| Office-BP category | no layer-2/3 factor | layer-2 factor(s), fewer than 3 | layer-3 trigger / >=3 layer-2 factors |
+| --- | --- | --- | --- |
+| high-normal / elevated BP | low | moderate | high |
+| grade I hypertension | low | moderate | high |
+| grade II hypertension | moderate | high | high |
+| grade III hypertension | high | high | high |
 
-Options:
-- elevated at health check / another office visit
-- elevated at home
-- not yet confirmed
+Do not expose `risk layer 1/2/3` terminology in the routine user-facing UI. Explain the concrete reason for elevated risk instead.
 
-If not confirmed, suggest:
-- home BP or another-day office BP
+### Treatment / reassessment timing
 
-Output should explain:
-- current BP category
-- whether high-risk background is present
-- whether treatment consideration is immediate vs short-interval reassessment
-- any decision-relevant missing information
+Lock the following operational wording for C2/C3:
+
+- high-normal / elevated BP + low/moderate risk:
+  - lifestyle modification
+  - planned reassessment
+  - no automatic immediate-drug message
+
+- high-normal / elevated BP + high risk:
+  - lifestyle modification
+  - short-interval reassessment, approximately 1 month
+  - if BP remains above target, pharmacologic treatment may be considered
+
+- grade I hypertension + low/moderate risk:
+  - lifestyle modification
+  - reassess within approximately 1 month
+  - if still above target, begin / consider pharmacologic treatment
+
+- grade I hypertension + high risk:
+  - lifestyle modification plus prompt pharmacologic treatment
+
+- grade II / III hypertension:
+  - lifestyle modification plus prompt pharmacologic treatment regardless of lower risk strata
+  - prompt confirmation / clinical assessment still matters, but do not present this as a prolonged watch-and-wait branch
+
+Do not convert these into autonomous prescribing instructions. The tool should describe timing and treatment consideration.
+
+### BP targets
+
+Default treatment targets:
+- office BP <130/80 mmHg
+- home BP <125/75 mmHg
+
+These targets apply broadly in JSH2025, including older adults, but treatment should be individualized when symptoms, orthostatic hypotension, AKI, hyperkalemia, frailty, or other intolerance limits further reduction.
+
+For CKD:
+- the 2026 Japanese Society of Nephrology statement aligns with an overall target of office <130/80 and home <125/75
+- in non-diabetic proteinuria-negative CKD, a cautious intermediate target of office <140/90 / home <135/85 may be used while titrating according to tolerance
+
+### Proteinuria — when it is decision-relevant
+
+Proteinuria is **not** needed merely to choose the default BP target.
+
+For this BP engine, ask proteinuria only when all of the following are true:
+- CKD is known / otherwise established
+- high-risk status has not already been established by CVD, AF, diabetes, or >=3 layer-2 factors
+- the current BP category is one in which high-risk status changes treatment timing, especially high-normal / elevated BP or grade I hypertension
+
+Proteinuria-positive CKD is a JSH2025 high-risk trigger.
+
+Operational positive threshold:
+- spot urine protein / creatinine ratio >=0.15 g/gCr
+
+If grade II / III hypertension already places the patient in a prompt-treatment branch, do not ask proteinuria solely to decide treatment timing.
+
+Proteinuria can still matter for drug selection / renal management, but drug-class selection is outside the Phase C scope.
+
+### C2 implementation contract
+
+C2 should implement pure rules for:
+- office-BP category using the higher SBP / DBP category
+- internal risk level
+- high-risk trigger reason(s)
+- whether persistence confirmation is needed
+- whether proteinuria is decision-relevant
+- treatment-timing class:
+  - lifestyle / planned reassessment
+  - short-interval reassessment
+  - prompt pharmacologic-treatment consideration
+- office/home target context
 
 ## 8. Logic 3 — Lipids
 
