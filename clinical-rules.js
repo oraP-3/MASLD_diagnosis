@@ -81,9 +81,10 @@ export function deriveCmrf(input) {
   const count = Object.values(statuses).filter((value) => value === true).length;
   const unknownKeys = Object.entries(statuses).filter(([, v]) => v === null).map(([key]) => key);
   const otherCriteriaKnownNegative = [glucose, bp, tgCriterion, hdlCriterion].every((v) => v === false);
-  const needsWaist = bmi !== null && bmi < MASLD_THRESHOLDS.bmi && waist === null && count === 0 && otherCriteriaKnownNegative;
+  const waistRelevant = bmi !== null && bmi < MASLD_THRESHOLDS.bmi && otherCriteriaKnownNegative;
+  const needsWaist = waistRelevant && waist === null;
 
-  return { statuses, count, unknownKeys, hasAny: count > 0, needsWaist, canRuleOutAll: count === 0 && unknownKeys.length === 0 };
+  return { statuses, count, unknownKeys, hasAny: count > 0, waistRelevant, needsWaist, canRuleOutAll: count === 0 && unknownKeys.length === 0 };
 }
 
 export function classifySld(input, cmrf) {
@@ -104,10 +105,9 @@ export function classifySld(input, cmrf) {
     return { id: 'metald', title: input.otherCause ? 'MetALD＋特定成因併存' : 'MetALD', detail: `CMRF ${cmrf.count}項目を満たし、飲酒量はMetALD域です。${coexistence}` };
   }
 
-  if (input.otherCause === true) return { id: 'specific_sld', title: '特定成因SLD', detail: 'CMRFを認めず、ウイルス性・薬剤性など別の明確な成因を伴うSLDとして評価します。' };
-
   if (cmrf.needsWaist) return { id: 'pending', title: '判定保留', detail: '他のCMRFを認めないため、腹囲を確認するとMASLD分類が確定できます。', missing: ['waist'] };
   if (!cmrf.canRuleOutAll) return { id: 'pending', title: '判定保留', detail: 'CMRF判定に必要な入力が不足しています。', missing: cmrf.unknownKeys };
+  if (input.otherCause === true) return { id: 'specific_sld', title: '特定成因SLD', detail: 'CMRFを認めず、ウイルス性・薬剤性など別の明確な成因を伴うSLDとして評価します。' };
   if (alcohol < threshold.metaldMin) return { id: 'cryptogenic', title: '成因不明SLD', detail: 'CMRFを認めず、飲酒量もMASLD域で、他の明確な成因が入力されていません。' };
 
   return { id: 'unclassified', title: 'SLD（要臨床分類）', detail: 'CMRFを認めず、飲酒量はMetALD域ですがALD域には達していません。本ツールでは自動分類せず臨床判断に戻します。' };
@@ -116,7 +116,7 @@ export function classifySld(input, cmrf) {
 export function calculateFib4({ age, ast, alt, plateletsWan }) {
   const a = toNumber(age), av = toNumber(ast), lv = toNumber(alt), p = toNumber(plateletsWan);
   if ([a, av, lv, p].some((v) => v === null || v <= 0)) return null;
-  return Math.round(((a * av) / ((p * 10) * Math.sqrt(lv))) * 100) / 100;
+  return (a * av) / ((p * 10) * Math.sqrt(lv));
 }
 
 export function evaluateFib4(age, score) {
