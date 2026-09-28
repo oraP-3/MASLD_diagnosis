@@ -38,7 +38,7 @@ function renderCmrf(cmrf) {
     const suffix = status === true ? '該当' : status === false ? '非該当' : '未確定';
     return `<span class="badge ${cls}">${cmrfLabels[key]}：${suffix}</span>`;
   }).join('');
-  $('waistPrompt').classList.toggle('hidden', !cmrf.needsWaist);
+  $('waistPrompt').classList.toggle('hidden', !cmrf.waistRelevant);
 }
 function renderSld(input, cmrf) { const r = classifySld(input, cmrf); setResultCard($('sldResult'), 'SLD分類', r.title, r.detail, resultClass(r.id)); }
 
