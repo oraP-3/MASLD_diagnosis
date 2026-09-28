@@ -55,6 +55,7 @@ If alcohol intake is unknown, the existing beverage / quantity calculator may be
 - ALT
 - platelet count
 - HbA1c
+- fasting glucose (if available)
 - LDL-C
 - HDL-C
 - triglycerides
@@ -64,7 +65,7 @@ If alcohol intake is unknown, the existing beverage / quantity calculator may be
 Conditional helpers:
 - height + weight -> BMI
 - creatinine -> eGFR
-- glucose input only when diabetes confirmation requires it
+- random glucose only when diabetes confirmation requires it
 
 ### Existing diagnosis / treatment
 Compact initial flags:
@@ -261,19 +262,27 @@ Display:
 
 ### No known diabetes
 
-HbA1c:
-- <5.7%: no MASLD glucose CMRF from HbA1c
-- 5.7–6.4%: glucose abnormality / MASLD CMRF
-- >=6.5%: diabetic range
+Official Japanese 2026 MASLD glucose CMRF criteria include any of:
+- fasting plasma glucose >=100 mg/dL
+- 2-hour glucose >=140 mg/dL
+- HbA1c >=5.7%
+- type 2 diabetes or its treatment
 
-Only if HbA1c is in the diabetic range, expand glucose confirmation input:
-- fasting glucose
-- random glucose
-- 75-g OGTT 2-hour glucose
+Operational tool scope:
+- collect HbA1c and fasting glucose as routine available inputs
+- intentionally omit 2-hour OGTT input from this tool because it is not part of the intended workflow
+- random glucose is **not** a MASLD CMRF criterion; use it only for diabetes diagnostic-range confirmation when relevant
 
-If HbA1c and glucose are both diagnostic on the same assessment, indicate that diagnostic criteria are met.
+Diabetic-type thresholds used for the no-known-diabetes branch:
+- fasting glucose >=126 mg/dL
+- random glucose >=200 mg/dL
+- HbA1c >=6.5%
 
-If HbA1c alone is diagnostic, suggest blood-glucose confirmation.
+If HbA1c and a diabetic-type blood-glucose value are both present on the same assessment, indicate that the Japan Diabetes Society diagnostic criteria are met, while retaining final clinical judgment because the tool does not store dates/symptoms.
+
+If HbA1c alone is diabetic-type, suggest blood-glucose confirmation.
+
+If fasting glucose alone is diabetic-type, display that it is diabetic-type but do not autonomously confirm diabetes from a single value.
 
 ## 10. Logic 5 — Uric acid
 
