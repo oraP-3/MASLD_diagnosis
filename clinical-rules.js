@@ -85,7 +85,7 @@ export function deriveCmrf(input) {
     (hba1c !== null && hba1c >= MASLD_THRESHOLDS.hba1c) ||
     (fastingGlucose !== null && fastingGlucose >= MASLD_THRESHOLDS.fastingGlucose)
   ) glucose = true;
-  else if (hba1c !== null || fastingGlucose !== null) glucose = false;
+  else if (hba1c !== null && fastingGlucose !== null) glucose = false;
 
   let bp = null;
   if (input.antihypertensiveTreatment) bp = true;
@@ -145,6 +145,7 @@ export function evaluateGlycemia(input) {
   const hba1cDiabetic = hba1c !== null && hba1c >= GLYCEMIA_THRESHOLDS.diabeticHba1c;
   const fastingDiabetic = fastingGlucose !== null && fastingGlucose >= GLYCEMIA_THRESHOLDS.fastingGlucose;
   const randomDiabetic = hba1cDiabetic && randomGlucose !== null && randomGlucose >= GLYCEMIA_THRESHOLDS.randomGlucose;
+  const showRandomGlucose = hba1cDiabetic && (!fastingDiabetic || randomGlucose !== null);
 
   if (hba1cDiabetic && (fastingDiabetic || randomDiabetic)) {
     const bloodParts = [];
@@ -156,6 +157,7 @@ export function evaluateGlycemia(input) {
       detail: `HbA1c ${hba1c.toFixed(1)}%は糖尿病型で、入力された血糖値のうち少なくとも一つ（${bloodParts.join('、')}）も糖尿病型です。同一採血で得られた場合は日本糖尿病学会の診断基準を満たします。本ツールでは検査日や症状を保持しないため、最終診断は臨床情報と併せて判断してください。`,
       tone: 'bad',
       needsGlucoseConfirmation: false,
+      showRandomGlucose,
     };
   }
 
@@ -171,6 +173,7 @@ export function evaluateGlycemia(input) {
         detail: `HbA1c ${hba1c.toFixed(1)}%は糖尿病型です。HbA1c単独では診断を確定せず、血糖値による確認が必要です。`,
         tone: 'warn',
         needsGlucoseConfirmation: true,
+        showRandomGlucose: true,
       };
     }
 
@@ -180,6 +183,7 @@ export function evaluateGlycemia(input) {
       detail: `HbA1c ${hba1c.toFixed(1)}%は糖尿病型ですが、${enteredBlood.join('、')}は糖尿病型の基準未満です。HbA1c単独では診断を確定せず、再検査等を臨床的に検討します。`,
       tone: 'warn',
       needsGlucoseConfirmation: true,
+      showRandomGlucose: true,
     };
   }
 
