@@ -48,13 +48,34 @@
 
       <div class="check-grid top-gap">
         <label class="choice-card"><input id="antihypertensiveTreatment" type="checkbox" /> 降圧薬使用中</label>
-        <label class="choice-card"><input id="diagnosedDiabetes" type="checkbox" /> 2型糖尿病診断済み／治療中</label>
+        <label class="choice-card"><input id="diagnosedDiabetes" type="checkbox" /> 糖尿病診断済み／治療中</label>
         <label class="choice-card"><input id="lipidTreatment" type="checkbox" /> 脂質異常症治療中</label>
       </div>
     </section>
 
     <section class="card">
-      <div class="section-heading"><div><span class="step">2</span><h2>SLD分類</h2></div></div>
+      <div class="section-heading"><div><span class="step">2</span><h2>糖代謝</h2></div></div>
+      <div id="glucoseConfirm" class="conditional-box hidden">
+        <strong>血糖値で確認</strong>
+        <p>未診断でHbA1cが6.5%以上のときだけ確認します。</p>
+        <div class="grid cols-2">
+          <label>血糖の種類
+            <select id="glucoseType">
+              <option value="">選択してください</option>
+              <option value="fasting">空腹時血糖</option>
+              <option value="random">随時血糖</option>
+              <option value="ogtt2h">75gOGTT 2時間値</option>
+            </select>
+          </label>
+          <label>血糖値 mg/dL<input id="glucoseValue" type="number" min="20" max="1000" step="1" inputmode="numeric" /></label>
+        </div>
+      </div>
+      <div id="glycemiaResult" class="result-card neutral"><p class="result-label">糖代謝</p><h3>入力待ち</h3><p>HbA1cを入力してください。</p></div>
+      <p class="microcopy">糖尿病診断済みの場合は一般的なHbA1c目標（7.0%未満）との位置づけを表示します。実際の目標は個別化が必要です。</p>
+    </section>
+
+    <section class="card">
+      <div class="section-heading"><div><span class="step">3</span><h2>SLD分類</h2></div></div>
       <div class="grid cols-2">
         <fieldset class="inline-fieldset">
           <legend>肝脂肪化</legend>
@@ -92,7 +113,7 @@
     </section>
 
     <section class="card">
-      <div class="section-heading"><div><span class="step">3</span><h2>肝線維化</h2></div></div>
+      <div class="section-heading"><div><span class="step">4</span><h2>肝線維化</h2></div></div>
       <div class="grid cols-3">
         <label>AST U/L<input id="ast" type="number" min="1" max="5000" /></label>
         <label>ALT U/L<input id="alt" type="number" min="1" max="5000" /></label>
@@ -120,7 +141,7 @@
       </div>
     </section>
 
-    <section class="card info-card"><h2>Phase A の範囲</h2><p>この版はSLD分類と肝線維化評価までです。血圧・脂質・糖代謝・尿酸の治療Logicは後続Phaseで追加します。</p></section>
+    <section class="card info-card"><h2>現在の実装範囲</h2><p>SLD分類、肝線維化評価、糖代謝評価まで実装しています。血圧・脂質・尿酸の治療Logicは後続Phaseで追加します。</p></section>
   </main>
   <script type="module" src="./app.js"></script>
 </body>
