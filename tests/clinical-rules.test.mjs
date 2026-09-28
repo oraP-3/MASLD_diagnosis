@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { calculateBmi, deriveCmrf, classifySld, calculateFib4, evaluateFib4, evaluatePlatelets, interpretNit } from '../clinical-rules.js';
+import { calculateBmi, deriveCmrf, classifySld, calculateFib4, evaluateFib4, evaluatePlatelets, shouldShowNit, interpretNit } from '../clinical-rules.js';
 
 test('BMI helper rounds to one decimal place',()=>assert.equal(calculateBmi(182,88),26.6));
 test('CMRF is derived from numeric inputs without manual checkboxes',()=>{const c=deriveCmrf({sex:'male',bmi:22.5,waist:90,hba1c:5.8,sbp:125,dbp:78,tg:120,hdl:55,diagnosedDiabetes:false,antihypertensiveTreatment:false,lipidTreatment:false});assert.equal(c.statuses.glucose,true);assert.equal(c.count,1)});
@@ -12,3 +12,5 @@ test('platelet supporting bands use 15 and 20 man/uL boundaries',()=>{assert.equ
 test('NIT output remains suggestive rather than definitive',()=>{const r=interpretNit({vcteKpa:8.2,swe:'',sweUnit:'kpa',mreKpa:'',elf:'',type4Collagen7s:'',m2bpgi:''});assert.equal(r[0].status,'suggestive');assert.match(r[0].detail,/示唆/)});
 
 test('MASLD can coexist with another steatosis etiology',()=>{const c={hasAny:true,count:1,needsWaist:false,canRuleOutAll:false,unknownKeys:[]};const r=classifySld({steatosis:true,sex:'male',alcoholGWeek:0,otherCause:true},c);assert.equal(r.id,'masld');assert.match(r.title,/特定成因併存/)});
+
+test('low-risk FIB-4 with preserved platelets does not request second-line NIT',()=>{assert.equal(shouldShowNit({fib4Evaluation:evaluateFib4(55,0.9),plateletsWan:25}),false)});
