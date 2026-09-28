@@ -96,12 +96,6 @@ export function deriveCmrf(input) {
   return { statuses, count, unknownKeys, hasAny: count > 0, waistRelevant, needsWaist, canRuleOutAll: count === 0 && unknownKeys.length === 0 };
 }
 
-function glucoseDiagnosticThreshold(type) {
-  if (type === 'fasting') return { value: GLYCEMIA_THRESHOLDS.fastingGlucose, label: '空腹時血糖' };
-  if (type === 'random') return { value: GLYCEMIA_THRESHOLDS.randomGlucose, label: '随時血糖' };
-  return null;
-}
-
 export function evaluateGlycemia(input) {
   const hba1c = toNumber(input.hba1c);
 
@@ -163,24 +157,32 @@ export function evaluateGlycemia(input) {
     };
   }
 
-  const threshold = glucoseDiagnosticThreshold(input.glucoseType);
-  const glucose = toNumber(input.glucoseValue);
+  const fastingGlucose = toNumber(input.fastingGlucose);
+  const randomGlucose = toNumber(input.randomGlucose);
+  const enteredGlucose = [];
+  if (fastingGlucose !== null) enteredGlucose.push(`空腹時血糖 ${fastingGlucose} mg/dL`);
+  if (randomGlucose !== null) enteredGlucose.push(`随時血糖 ${randomGlucose} mg/dL`);
 
-  if (!threshold || glucose === null) {
+  if (enteredGlucose.length === 0) {
     return {
       id: 'hba1c_diabetic_range_needs_glucose',
       title: 'HbA1cは糖尿病型 — 血糖確認待ち',
-      detail: `HbA1c ${hba1c.toFixed(1)}%は糖尿病型です。HbA1c単独では診断を確定せず、血糖値による確認が必要です。`,
+      detail: `HbA1c ${hba1c.toFixed(1)}%は糖尿病型です。HbA1c単独では診断を確定せず、空腹時または随時血糖による確認が必要です。`,
       tone: 'warn',
       needsGlucoseConfirmation: true,
     };
   }
 
-  if (glucose >= threshold.value) {
+  const hasDiabeticGlucose =
+    (fastingGlucose !== null && fastingGlucose >= GLYCEMIA_THRESHOLDS.fastingGlucose) ||
+    (randomGlucose !== null && randomGlucose >= GLYCEMIA_THRESHOLDS.randomGlucose);
+  const glucoseSummary = enteredGlucose.join('、');
+
+  if (hasDiabeticGlucose) {
     return {
       id: 'hba1c_and_glucose_diabetic_range',
       title: 'HbA1c・血糖とも糖尿病型',
-      detail: `HbA1c ${hba1c.toFixed(1)}%、${threshold.label} ${glucose} mg/dLはいずれも糖尿病型です。同一採血であれば日本糖尿病学会の診断基準を満たします。本ツールでは検査日や症状を保持しないため、最終診断は臨床情報と併せて判断してください。`,
+      detail: `HbA1c ${hba1c.toFixed(1)}%、${glucoseSummary}。入力された血糖値のうち少なくとも一つが糖尿病型です。HbA1cと糖尿病型の血糖値が同一採血で得られた場合は日本糖尿病学会の診断基準を満たします。本ツールでは検査日や症状を保持しないため、最終診断は臨床情報と併せて判断してください。`,
       tone: 'bad',
       needsGlucoseConfirmation: true,
     };
@@ -189,7 +191,7 @@ export function evaluateGlycemia(input) {
   return {
     id: 'hba1c_diabetic_range_glucose_below',
     title: 'HbA1cは糖尿病型、血糖は糖尿病型未満',
-    detail: `HbA1c ${hba1c.toFixed(1)}%は糖尿病型ですが、${threshold.label} ${glucose} mg/dLは糖尿病型の基準未満です。HbA1c単独では診断を確定せず、再検査等を臨床的に検討します。`,
+    detail: `HbA1c ${hba1c.toFixed(1)}%は糖尿病型ですが、${glucoseSummary}は糖尿病型の基準未満です。HbA1c単独では診断を確定せず、再検査等を臨床的に検討します。`,
     tone: 'warn',
     needsGlucoseConfirmation: true,
   };
