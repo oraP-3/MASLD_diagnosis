@@ -222,7 +222,7 @@ export function evaluateUricAcid(input) {
     };
   }
 
-  const showContextQuestions = treated || ua > URIC_ACID_THRESHOLDS.hyperuricemiaExclusive;
+  const showContextQuestions = !treated && ua > URIC_ACID_THRESHOLDS.hyperuricemiaExclusive;
 
   if (treated) {
     if (ua <= URIC_ACID_THRESHOLDS.treatmentTarget) {
