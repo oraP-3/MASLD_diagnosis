@@ -282,7 +282,13 @@ If HbA1c and a diabetic-type blood-glucose value are both present on the same as
 
 If HbA1c alone is diabetic-type, suggest blood-glucose confirmation.
 
-If fasting glucose alone is diabetic-type, display that it is diabetic-type but do not autonomously confirm diabetes from a single value.
+If fasting glucose alone is diabetic-type while HbA1c is below the diabetic-type threshold or unavailable:
+- show one conditional checkbox: `separate-day diabetic-type confirmed`
+- do not request the date or repeat value
+- if unchecked, display that one diabetic-type blood-glucose value requires confirmation
+- if checked, indicate that the diagnostic criteria are met because diabetic-type findings have been confirmed on separate days
+
+This checkbox is only shown in that fasting-glucose-alone branch.
 
 ## 10. Logic 5 — Uric acid
 
