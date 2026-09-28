@@ -1,0 +1,58 @@
+# MASLD Clinical Support
+
+Single-session, stateless clinical support tool for MASLD-related outpatient assessment.
+
+## Current implementation status
+
+Phase A implements:
+
+- BMI-first input with optional height/weight calculator
+- direct alcohol intake input (g/week) with optional beverage calculator
+- automatic cardiometabolic risk criteria (CMRF) derivation
+- SLD / MASLD / MetALD / ALD classification support
+- FIB-4 calculation with age-sensitive interpretation
+- platelet-based supportive fibrosis context
+- conditional optional second-line NIT interpretation
+
+Not yet implemented:
+
+- hypertension treatment logic
+- lipid / modified Hisayama logic
+- diabetes treatment logic
+- hyperuricemia treatment logic
+- unified missing-data result dashboard
+
+The tool stores no patient data and contains no backend or local-storage persistence.
+
+## Run locally
+
+```bash
+python3 -m http.server 8000
+```
+
+Then open `http://localhost:8000/`.
+
+## Tests
+
+Node.js 20+ recommended.
+
+```bash
+npm test
+```
+
+The test suite uses Node's built-in test runner; no package install is required.
+
+## Clinical rule sources
+
+The current clinical contract is `docs/spec-v0.3.md`.
+
+Key Phase A rules are based on the Japanese 2026 MASLD diagnostic criteria and the 2026 evidence-based MASLD clinical practice guideline. Current authoritative guidelines and regulatory documents supersede repository interpretations if they change.
+
+## Non-goals
+
+This tool does not:
+
+- store patient identifiers or longitudinal records
+- make final autonomous treatment decisions
+- determine semaglutide/Wegovy eligibility
+- assign definitive histologic fibrosis stage from NIT alone
