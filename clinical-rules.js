@@ -189,12 +189,23 @@ export function evaluateGlycemia(input) {
 
   if (fastingDiabetic) {
     const hba1cContext = hba1c === null ? 'HbA1cは未入力です。' : `HbA1c ${hba1c.toFixed(1)}%は6.5%未満です。`;
+    if (input.separateDayDiabeticTypeConfirmed) {
+      return {
+        id: 'fasting_glucose_diabetic_range_repeat_confirmed',
+        title: '糖尿病診断基準を満たす',
+        detail: `空腹時血糖 ${fastingGlucose} mg/dLは糖尿病型です。${hba1cContext} 別日に糖尿病型を再確認済みのため、日本糖尿病学会の診断基準を満たします。最終診断は症状や臨床経過も含めて判断してください。`,
+        tone: 'bad',
+        needsGlucoseConfirmation: false,
+        showSeparateDayConfirmation: true,
+      };
+    }
     return {
       id: 'fasting_glucose_diabetic_range_needs_confirmation',
       title: '空腹時血糖は糖尿病型 — 診断確認が必要',
-      detail: `空腹時血糖 ${fastingGlucose} mg/dLは糖尿病型です。${hba1cContext} 血糖値が糖尿病型でも1回のみでは本ツール上は診断を確定せず、再検査や症状等を含めて臨床判断します。`,
+      detail: `空腹時血糖 ${fastingGlucose} mg/dLは糖尿病型です。${hba1cContext} 1回のみでは本ツール上は診断を確定せず、別日の糖尿病型確認や症状等を含めて臨床判断します。`,
       tone: 'warn',
       needsGlucoseConfirmation: false,
+      showSeparateDayConfirmation: true,
     };
   }
 

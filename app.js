@@ -19,7 +19,8 @@ function boolRadio(name) { const v = radioValue(name); return v === 'true' ? tru
 function currentInput() {
   return {
     age: value('age'), sex: radioValue('sex'), bmi: value('bmi'), waist: value('waist'), sbp: value('sbp'), dbp: value('dbp'),
-    hba1c: value('hba1c'), fastingGlucose: value('fastingGlucose'), randomGlucose: value('randomGlucose'), tg: value('tg'), hdl: value('hdl'),
+    hba1c: value('hba1c'), fastingGlucose: value('fastingGlucose'), randomGlucose: value('randomGlucose'),
+    separateDayDiabeticTypeConfirmed: checked('separateDayDiabeticTypeConfirmed'), tg: value('tg'), hdl: value('hdl'),
     antihypertensiveTreatment: checked('antihypertensiveTreatment'), diagnosedDiabetes: checked('diagnosedDiabetes'), lipidTreatment: checked('lipidTreatment'),
     steatosis: boolRadio('steatosis'), alcoholGWeek: value('alcoholGWeek'), otherCause: checked('otherCause'),
     ast: value('ast'), alt: value('alt'), plateletsWan: value('plateletsWan'),
@@ -47,6 +48,9 @@ function renderCmrf(cmrf) {
 function renderGlycemia(input) {
   const r = evaluateGlycemia(input);
   $('glucoseConfirm').classList.toggle('hidden', !r.showRandomGlucose);
+  const showSeparateDayConfirmation = Boolean(r.showSeparateDayConfirmation);
+  $('separateDayDiabeticConfirm').classList.toggle('hidden', !showSeparateDayConfirmation);
+  if (!showSeparateDayConfirmation) $('separateDayDiabeticTypeConfirmed').checked = false;
   setResultCard($('glycemiaResult'), '糖代謝', r.title, r.detail, r.tone);
 }
 
