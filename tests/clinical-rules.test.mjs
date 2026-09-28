@@ -10,3 +10,5 @@ test('FIB-4 calculation matches expected formula',()=>assert.equal(calculateFib4
 test('age 66 uses the 2.0 lower FIB-4 threshold',()=>{assert.equal(evaluateFib4(65,1.5).id,'intermediate');assert.equal(evaluateFib4(66,1.5).id,'low');assert.equal(evaluateFib4(66,2.0).id,'intermediate');assert.equal(evaluateFib4(66,2.68).id,'high')});
 test('platelet supporting bands use 15 and 20 man/uL boundaries',()=>{assert.equal(evaluatePlatelets(14.9).id,'high');assert.equal(evaluatePlatelets(15).id,'intermediate');assert.equal(evaluatePlatelets(20).id,'intermediate');assert.equal(evaluatePlatelets(20.1).id,'low')});
 test('NIT output remains suggestive rather than definitive',()=>{const r=interpretNit({vcteKpa:8.2,swe:'',sweUnit:'kpa',mreKpa:'',elf:'',type4Collagen7s:'',m2bpgi:''});assert.equal(r[0].status,'suggestive');assert.match(r[0].detail,/示唆/)});
+
+test('MASLD can coexist with another steatosis etiology',()=>{const c={hasAny:true,count:1,needsWaist:false,canRuleOutAll:false,unknownKeys:[]};const r=classifySld({steatosis:true,sex:'male',alcoholGWeek:0,otherCause:true},c);assert.equal(r.id,'masld');assert.match(r.title,/特定成因併存/)});
