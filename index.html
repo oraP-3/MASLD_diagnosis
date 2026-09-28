@@ -133,7 +133,42 @@
       </div>
     </section>
 
-    <section class="card info-card"><h2>現在の実装範囲</h2><p>SLD分類、肝線維化評価、糖代謝評価まで実装しています。血圧・脂質・尿酸の治療Logicは後続Phaseで追加します。</p></section>
+    <section class="card">
+      <div class="section-heading"><div><span class="step">5</span><h2>尿酸</h2></div></div>
+      <label>尿酸 mg/dL<input id="uricAcid" type="number" min="0" max="30" step="0.1" inputmode="decimal" placeholder="例 7.8" /></label>
+      <label class="choice-card top-gap compact"><input id="urateTreatment" type="checkbox" /> 尿酸降下薬使用中</label>
+
+      <div id="urateContext" class="conditional-box hidden">
+        <strong>追加確認</strong>
+        <div class="grid cols-2">
+          <fieldset class="inline-fieldset">
+            <legend>痛風（発作歴または痛風結節）</legend>
+            <label class="choice"><input type="radio" name="goutPresent" value="true" /> あり</label>
+            <label class="choice"><input type="radio" name="goutPresent" value="false" /> なし</label>
+          </fieldset>
+          <fieldset class="inline-fieldset">
+            <legend>尿路結石（既往または現在）</legend>
+            <label class="choice"><input type="radio" name="urinaryStone" value="true" /> あり</label>
+            <label class="choice"><input type="radio" name="urinaryStone" value="false" /> なし</label>
+          </fieldset>
+        </div>
+
+        <div id="urateComplicationPrompt" class="top-gap hidden">
+          <p class="microcopy">尿酸8.0–8.9 mg/dLでは、関連合併症の有無で薬物療法を考慮するかが変わります。</p>
+          <fieldset class="inline-fieldset">
+            <legend>その他の関連合併症</legend>
+            <label class="choice"><input type="radio" name="otherUrateComplication" value="true" /> あり</label>
+            <label class="choice"><input type="radio" name="otherUrateComplication" value="false" /> なし</label>
+          </fieldset>
+          <p class="microcopy">CKD/腎障害、高血圧、虚血性心疾患、メタボリックシンドローム。糖尿病と降圧薬使用中は上の入力を自動利用します。</p>
+        </div>
+      </div>
+
+      <div id="uricResult" class="result-card neutral"><p class="result-label">尿酸</p><h3>入力待ち</h3><p>尿酸値を入力してください。</p></div>
+      <p class="microcopy">8 / 9 mg/dLは薬物療法を「考慮する」閾値であり、自動的な投薬適応ではありません。</p>
+    </section>
+
+    <section class="card info-card"><h2>現在の実装範囲</h2><p>SLD分類、肝線維化評価、糖代謝評価、尿酸評価まで実装しています。血圧・脂質の治療Logicは後続Phaseで追加します。</p></section>
   </main>
   <script type="module" src="./app.js"></script>
 </body>

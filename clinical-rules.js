@@ -23,6 +23,13 @@ export const GLYCEMIA_THRESHOLDS = Object.freeze({
   generalHba1cTarget: 7.0,
 });
 
+export const URIC_ACID_THRESHOLDS = Object.freeze({
+  hyperuricemiaExclusive: 7.0,
+  complicationConsideration: 8.0,
+  noComplicationConsideration: 9.0,
+  treatmentTarget: 6.0,
+});
+
 export const NIT_THRESHOLDS = Object.freeze({
   vcteKpa: 8,
   sweKpa: 8,
@@ -194,6 +201,145 @@ export function evaluateGlycemia(input) {
     detail: `HbA1c ${hba1c.toFixed(1)}%は糖尿病型ですが、${glucoseSummary}は糖尿病型の基準未満です。HbA1c単独では診断を確定せず、再検査等を臨床的に検討します。`,
     tone: 'warn',
     needsGlucoseConfirmation: true,
+  };
+}
+
+export function evaluateUricAcid(input) {
+  const ua = toNumber(input.uricAcid);
+  const treated = Boolean(input.urateTreatment);
+  const gout = input.goutPresent;
+  const stone = input.urinaryStone;
+  const otherComplication = input.otherUrateComplication;
+
+  if (ua === null) {
+    return {
+      id: treated ? 'treated_needs_ua' : 'pending',
+      title: treated ? '尿酸降下薬治療中 — 尿酸値入力待ち' : '入力待ち',
+      detail: treated ? '現在の尿酸値を入力すると治療目標との位置づけを表示します。' : '尿酸値を入力してください。',
+      tone: 'neutral',
+      showContextQuestions: false,
+      showComplicationQuestion: false,
+    };
+  }
+
+  const showContextQuestions = !treated && ua > URIC_ACID_THRESHOLDS.hyperuricemiaExclusive;
+
+  if (treated) {
+    if (ua <= URIC_ACID_THRESHOLDS.treatmentTarget) {
+      return {
+        id: 'treated_at_target',
+        title: '尿酸降下薬治療中 — 参考目標内',
+        detail: `尿酸 ${ua.toFixed(1)} mg/dL。ガイドライン上の参考目標（6.0 mg/dL以下）の範囲内です。`,
+        tone: 'good',
+        showContextQuestions,
+        showComplicationQuestion: false,
+      };
+    }
+    return {
+      id: 'treated_above_target',
+      title: '尿酸降下薬治療中 — 参考目標を上回る',
+      detail: `尿酸 ${ua.toFixed(1)} mg/dL。ガイドライン上の参考目標（6.0 mg/dL以下）を上回ります。治療内容の調整要否は病型・合併症等を踏まえて臨床判断します。`,
+      tone: 'warn',
+      showContextQuestions,
+      showComplicationQuestion: false,
+    };
+  }
+
+  if (ua <= URIC_ACID_THRESHOLDS.hyperuricemiaExclusive) {
+    return {
+      id: 'no_hyperuricemia',
+      title: '高尿酸血症なし',
+      detail: `尿酸 ${ua.toFixed(1)} mg/dL。高尿酸血症の定義（7.0 mg/dL超）には該当しません。`,
+      tone: 'good',
+      showContextQuestions: false,
+      showComplicationQuestion: false,
+    };
+  }
+
+  if (gout === null || gout === undefined) {
+    return {
+      id: 'needs_gout',
+      title: '高尿酸血症 — 痛風歴確認待ち',
+      detail: `尿酸 ${ua.toFixed(1)} mg/dL。痛風発作または痛風結節の有無で治療分岐が変わります。`,
+      tone: 'warn',
+      showContextQuestions: true,
+      showComplicationQuestion: false,
+    };
+  }
+
+  if (gout === true) {
+    return {
+      id: 'gout_branch',
+      title: '痛風関連高尿酸血症',
+      detail: `尿酸 ${ua.toFixed(1)} mg/dL。痛風を伴うため尿酸降下療法がガイドライン上支持される分岐です。参考目標は6.0 mg/dL以下です。`,
+      tone: 'bad',
+      showContextQuestions: true,
+      showComplicationQuestion: false,
+    };
+  }
+
+  if (ua >= URIC_ACID_THRESHOLDS.noComplicationConsideration) {
+    return {
+      id: 'asymptomatic_ge9',
+      title: '無症候性高尿酸血症 — 薬物療法を考慮',
+      detail: `尿酸 ${ua.toFixed(1)} mg/dL。合併症がなくても9.0 mg/dL以上では尿酸降下薬による治療を考慮する範囲です。自動的な投薬適応ではありません。`,
+      tone: 'warn',
+      showContextQuestions: true,
+      showComplicationQuestion: false,
+    };
+  }
+
+  if (ua >= URIC_ACID_THRESHOLDS.complicationConsideration) {
+    const knownComplication =
+      Boolean(input.diagnosedDiabetes) ||
+      Boolean(input.antihypertensiveTreatment) ||
+      stone === true ||
+      otherComplication === true;
+    const complicationResolved = knownComplication || (stone === false && otherComplication === false);
+    const showComplicationQuestion =
+      !input.diagnosedDiabetes &&
+      !input.antihypertensiveTreatment &&
+      stone !== true;
+
+    if (!complicationResolved) {
+      return {
+        id: 'needs_complication',
+        title: '無症候性高尿酸血症 — 合併症確認待ち',
+        detail: `尿酸 ${ua.toFixed(1)} mg/dL。8.0–8.9 mg/dLでは関連合併症の有無で薬物療法を考慮するかが変わります。`,
+        tone: 'warn',
+        showContextQuestions: true,
+        showComplicationQuestion,
+      };
+    }
+
+    if (knownComplication) {
+      return {
+        id: 'asymptomatic_ge8_with_complication',
+        title: '無症候性高尿酸血症 — 薬物療法を考慮',
+        detail: `尿酸 ${ua.toFixed(1)} mg/dL。関連合併症を伴うため8.0 mg/dL以上では尿酸降下薬による治療を考慮する範囲です。合併症ごとの予後改善エビデンスは同等ではなく、自動的な投薬適応ではありません。`,
+        tone: 'warn',
+        showContextQuestions: true,
+        showComplicationQuestion,
+      };
+    }
+
+    return {
+      id: 'asymptomatic_8_without_complication',
+      title: '無症候性高尿酸血症',
+      detail: `尿酸 ${ua.toFixed(1)} mg/dL。関連合併症を認めないため、9.0 mg/dL未満では生活習慣・併存疾患の管理を基本とします。`,
+      tone: 'warn',
+      showContextQuestions: true,
+      showComplicationQuestion,
+    };
+  }
+
+  return {
+    id: 'asymptomatic_7_to_8',
+    title: '無症候性高尿酸血症',
+    detail: `尿酸 ${ua.toFixed(1)} mg/dL。8.0 mg/dL未満では、痛風がなければ生活習慣・併存疾患の管理を基本とします。`,
+    tone: 'warn',
+    showContextQuestions: true,
+    showComplicationQuestion: false,
   };
 }
 
