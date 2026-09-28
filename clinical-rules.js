@@ -20,7 +20,6 @@ export const GLYCEMIA_THRESHOLDS = Object.freeze({
   diabeticHba1c: 6.5,
   fastingGlucose: 126,
   randomGlucose: 200,
-  ogtt2hGlucose: 200,
   generalHba1cTarget: 7.0,
 });
 
@@ -100,7 +99,6 @@ export function deriveCmrf(input) {
 function glucoseDiagnosticThreshold(type) {
   if (type === 'fasting') return { value: GLYCEMIA_THRESHOLDS.fastingGlucose, label: '空腹時血糖' };
   if (type === 'random') return { value: GLYCEMIA_THRESHOLDS.randomGlucose, label: '随時血糖' };
-  if (type === 'ogtt2h') return { value: GLYCEMIA_THRESHOLDS.ogtt2hGlucose, label: '75gOGTT 2時間値' };
   return null;
 }
 
@@ -191,7 +189,7 @@ export function evaluateGlycemia(input) {
   return {
     id: 'hba1c_diabetic_range_glucose_below',
     title: 'HbA1cは糖尿病型、血糖は糖尿病型未満',
-    detail: `HbA1c ${hba1c.toFixed(1)}%は糖尿病型ですが、${threshold.label} ${glucose} mg/dLは糖尿病型の基準未満です。HbA1c単独では診断を確定せず、再検査・OGTT等を臨床的に検討します。`,
+    detail: `HbA1c ${hba1c.toFixed(1)}%は糖尿病型ですが、${threshold.label} ${glucose} mg/dLは糖尿病型の基準未満です。HbA1c単独では診断を確定せず、再検査等を臨床的に検討します。`,
     tone: 'warn',
     needsGlucoseConfirmation: true,
   };
