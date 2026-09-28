@@ -60,6 +60,11 @@
         <p>未診断でHbA1cが6.5%以上かつ空腹時血糖だけでは確認できない場合、随時血糖があれば入力します。</p>
         <label>随時血糖 mg/dL<input id="randomGlucose" type="number" min="20" max="1000" step="1" inputmode="numeric" /></label>
       </div>
+      <div id="separateDayDiabeticConfirm" class="conditional-box hidden">
+        <strong>別日の確認</strong>
+        <label class="choice-card compact"><input id="separateDayDiabeticTypeConfirmed" type="checkbox" /> 別日に糖尿病型を確認済み</label>
+        <p class="microcopy">別日の空腹時血糖 ≥126 mg/dL、随時血糖 ≥200 mg/dL、またはHbA1c ≥6.5%を確認済みの場合にチェックします。</p>
+      </div>
       <div id="glycemiaResult" class="result-card neutral"><p class="result-label">糖代謝</p><h3>入力待ち</h3><p>HbA1cまたは空腹時血糖を入力してください。</p></div>
       <p class="microcopy">MASLDの糖代謝CMRFはHbA1cまたは空腹時血糖から評価します。糖尿病診断済みの場合は一般的なHbA1c目標（7.0%未満）との位置づけを表示します。</p>
     </section>
