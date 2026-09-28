@@ -153,7 +153,7 @@ export function evaluateGlycemia(input) {
     return {
       id: 'hba1c_and_glucose_diabetic_range',
       title: 'HbA1c・血糖とも糖尿病型',
-      detail: `HbA1c ${hba1c.toFixed(1)}%、${bloodParts.join('、')}はいずれも糖尿病型です。同一採血で得られた場合は日本糖尿病学会の診断基準を満たします。本ツールでは検査日や症状を保持しないため、最終診断は臨床情報と併せて判断してください。`,
+      detail: `HbA1c ${hba1c.toFixed(1)}%は糖尿病型で、入力された血糖値のうち少なくとも一つ（${bloodParts.join('、')}）も糖尿病型です。同一採血で得られた場合は日本糖尿病学会の診断基準を満たします。本ツールでは検査日や症状を保持しないため、最終診断は臨床情報と併せて判断してください。`,
       tone: 'bad',
       needsGlucoseConfirmation: false,
     };
