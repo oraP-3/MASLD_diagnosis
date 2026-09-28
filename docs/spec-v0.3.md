@@ -277,34 +277,63 @@ If HbA1c alone is diagnostic, suggest blood-glucose confirmation.
 
 ## 10. Logic 5 — Uric acid
 
-UA >7.0 mg/dL -> hyperuricemia.
+Evidence lock: see `docs/uric-acid-evidence-lock-v0.1.md`.
 
-If UA <=7 and the patient is not taking urate-lowering medication, do not ask gout or urinary-stone questions.
+### Definition
 
-If UA >7, ask separately:
-- gout present? (attack or tophus)
-- urinary stone history?
+- serum uric acid >7.0 mg/dL -> hyperuricemia
+- 7.0 mg/dL exactly is not classified as hyperuricemia by this threshold
+
+If UA <=7.0 mg/dL and the patient is not taking urate-lowering medication, do not ask gout or urinary-stone questions.
+
+If UA >7.0 mg/dL, ask separately:
+- gout present? (gout attack / gouty arthritis or tophus)
+- urinary-stone history / current urinary stone?
+
+If urate-lowering medication is already being taken, keep the urate-treatment context visible even when the current UA is <=7.0 mg/dL.
 
 ### Gout present
 
+Treat gout / gouty tophus as a symptomatic urate-deposition branch.
+
 Display:
-- gout-associated hyperuricemia
-- urate-lowering therapy should be considered clinically
+- gout-associated hyperuricemia / gout context
+- urate-lowering pharmacotherapy is a guideline-supported treatment branch
+- reference serum-UA target: <=6.0 mg/dL
 
-### No gout
+The tool still does not choose a specific drug.
 
-Use existing information to identify relevant complications:
+### No gout — asymptomatic hyperuricemia
+
+Use existing information to identify guideline-listed relevant complications:
 - CKD / renal impairment
 - urinary stones
 - hypertension
 - ischemic heart disease
 - diabetes
-- metabolic risk clustering
+- metabolic syndrome
 
-Pragmatic private-tool thresholds:
-- complications present and UA >=8 mg/dL -> consider pharmacologic therapy
-- no complications and UA >=9 mg/dL -> consider pharmacologic therapy
-- below these thresholds -> lifestyle intervention as the default
+Do **not** replace `metabolic syndrome` with generic cardiometabolic-risk clustering unless formal criteria are implemented.
+
+Japanese guideline consideration thresholds:
+- relevant complication present and UA >=8.0 mg/dL -> consider urate-lowering pharmacotherapy
+- no relevant complication and UA >=9.0 mg/dL -> consider urate-lowering pharmacotherapy
+- below the applicable threshold -> lifestyle intervention / management of associated disease is the default
+
+These 8 / 9 mg/dL values are **consideration thresholds, not automatic treatment indications**.
+
+If pharmacologic urate lowering is used, <=6.0 mg/dL is the guideline reference target.
+
+### Evidence-strength caveats
+
+Do not imply that all listed complications have equivalent evidence for event prevention by urate lowering.
+
+- renal impairment / CKD: Japanese guideline conditionally recommends urate-lowering therapy for the purpose of suppressing renal-function decline
+- hypertension: urate-lowering therapy is not actively recommended solely to improve life prognosis or reduce cardiovascular-disease risk
+- heart failure: urate-lowering therapy is not actively recommended solely to improve life prognosis
+- the 8 mg/dL branch therefore remains a treatment-consideration branch, with the reason for consideration made explicit where practical
+
+Urinary-stone history remains separate because it can affect downstream drug selection / stone-management considerations. This tool may flag that context but does not select a urate-lowering drug class.
 
 ## 11. Missing-data engine
 
