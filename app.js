@@ -46,7 +46,7 @@ function renderCmrf(cmrf) {
 }
 function renderGlycemia(input) {
   const r = evaluateGlycemia(input);
-  $('glucoseConfirm').classList.toggle('hidden', !r.needsGlucoseConfirmation);
+  $('glucoseConfirm').classList.toggle('hidden', !r.showRandomGlucose);
   setResultCard($('glycemiaResult'), '糖代謝', r.title, r.detail, r.tone);
 }
 
