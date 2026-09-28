@@ -1,11 +1,13 @@
 import { calculateBmi, deriveCmrf, classifySld, calculateFib4, evaluateFib4, evaluatePlatelets, shouldShowNit, interpretNit } from './clinical-rules.js';
 
 const DRINKS = [
-  ['beer350', 'ビール・発泡酒 350mL', 14], ['beer500', 'ビール・発泡酒 500mL', 20],
-  ['chuhai5350', 'チューハイ5% 350mL', 14], ['chuhai5500', 'チューハイ5% 500mL', 20],
-  ['chuhai7350', 'チューハイ7% 350mL', 19.6], ['chuhai7500', 'チューハイ7% 500mL', 28],
-  ['chuhai9350', 'ストロング9% 350mL', 25.2], ['chuhai9500', 'ストロング9% 500mL', 36],
-  ['wine', 'ワイン グラス', 11.5], ['sake', '日本酒 1合', 21.6], ['shochu', '焼酎・ハイボール 1杯', 14],
+  { id: 'beer', label: 'ビール・発泡酒 5%', unit: 'mL', gramsPerUnit: 0.04, step: 50, placeholder: '例 500' },
+  { id: 'chuhai5', label: 'チューハイ 5%', unit: 'mL', gramsPerUnit: 0.04, step: 50, placeholder: '例 500' },
+  { id: 'chuhai7', label: 'チューハイ 7%', unit: 'mL', gramsPerUnit: 0.056, step: 50, placeholder: '例 350' },
+  { id: 'chuhai9', label: 'チューハイ 9%', unit: 'mL', gramsPerUnit: 0.072, step: 50, placeholder: '例 350' },
+  { id: 'wine', label: 'ワイン', unit: '杯', gramsPerUnit: 11.5, step: 1, placeholder: '例 2' },
+  { id: 'whiskyShochu', label: 'ウイスキー・焼酎水割り', unit: '杯', gramsPerUnit: 14, step: 1, placeholder: '例 2' },
+  { id: 'sake', label: '日本酒', unit: '合', gramsPerUnit: 21.6, step: 0.5, placeholder: '例 1' },
 ];
 const cmrfLabels = { body: '体格', glucose: '糖代謝', bp: '血圧', tg: '中性脂肪', hdl: 'HDL-C' };
 const $ = (id) => document.getElementById(id);
@@ -69,9 +71,16 @@ function renderNit() {
 function renderAll() { const input = currentInput(); const cmrf = deriveCmrf(input); renderCmrf(cmrf); renderSld(input, cmrf); renderFibrosis(input); }
 
 function setupDrinkHelper() {
-  $('drinkRows').innerHTML = DRINKS.map(([id, label, alcohol]) => `<label class="drink-row"><span>${label}<br><small>${alcohol}g/単位</small></span><input class="drink-count" data-id="${id}" data-alcohol="${alcohol}" type="number" min="0" step="1" value="0" /></label>`).join('');
+  $('drinkRows').innerHTML = DRINKS.map(({ id, label, unit, gramsPerUnit, step, placeholder }) => `
+    <label class="drink-row">
+      <span>${label}</span>
+      <span class="drink-entry">
+        <input class="drink-count" data-id="${id}" data-grams-per-unit="${gramsPerUnit}" type="number" min="0" step="${step}" inputmode="decimal" placeholder="${placeholder}" />
+        <small class="drink-unit">${unit}</small>
+      </span>
+    </label>`).join('');
   const recalc = () => {
-    const perDay = [...document.querySelectorAll('.drink-count')].reduce((sum, input) => sum + Number(input.value || 0) * Number(input.dataset.alcohol), 0);
+    const perDay = [...document.querySelectorAll('.drink-count')].reduce((sum, input) => sum + Number(input.value || 0) * Number(input.dataset.gramsPerUnit), 0);
     const weekly = Math.round(perDay * Number(value('drinkingDays') || 0) * 10) / 10;
     $('alcoholPreview').textContent = `${weekly} g/週`; $('alcoholPreview').dataset.weekly = String(weekly);
   };
