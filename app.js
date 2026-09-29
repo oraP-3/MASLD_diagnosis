@@ -19,7 +19,7 @@ function boolRadio(name) { const v = radioValue(name); return v === 'true' ? tru
 function currentInput() {
   return {
     age: value('age'), sex: radioValue('sex'), bmi: value('bmi'), waist: value('waist'), sbp: value('sbp'), dbp: value('dbp'),
-    eGfr: value('eGfr'), ldl: value('ldl'), hba1c: value('hba1c'), fastingGlucose: value('fastingGlucose'), randomGlucose: value('randomGlucose'),
+    ldl: value('ldl'), hba1c: value('hba1c'), fastingGlucose: value('fastingGlucose'), randomGlucose: value('randomGlucose'),
     separateDayDiabeticTypeConfirmed: checked('separateDayDiabeticTypeConfirmed'), tg: value('tg'), hdl: value('hdl'),
     antihypertensiveTreatment: checked('antihypertensiveTreatment'), diagnosedDiabetes: checked('diagnosedDiabetes'),
     diagnosedCkd: checked('diagnosedCkd'), lipidTreatment: checked('lipidTreatment'), currentSmoking: checked('currentSmoking'),
