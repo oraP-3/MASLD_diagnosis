@@ -808,3 +808,11 @@ test('D3 age 80 or older high-risk target carries individualization wording',()=
   assert.equal(r.target,120);
   assert.match(r.detail,/フレイル/);
 });
+
+
+test('D3 diabetes strict branch preserves consider wording rather than presenting <100 as an unconditional target',()=>{
+  const r=summarizeLipids({...lipidBase,diagnosedDiabetes:true,currentSmoking:true,pad:null,diabeticMicrovascularDisease:null,ldl:110});
+  assert.match(r.title,/厳格化を考慮/);
+  assert.match(r.detail,/基本目標 <120/);
+  assert.match(r.detail,/<100 mg\/dLへの厳格化を考慮/);
+});
