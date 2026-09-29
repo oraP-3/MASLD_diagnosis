@@ -1053,12 +1053,6 @@ export const LIPID_TARGETS = Object.freeze({
   hdlMinimum: 40,
 });
 
-function secondaryCombinedVascularState(cad, stroke) {
-  if (cad === true && stroke === true) return true;
-  if (cad === false || stroke === false) return false;
-  return null;
-}
-
 export function evaluateLipidTriglycerides(input) {
   const tg = toNumber(input.tg);
   const hdl = toNumber(input.hdl);
@@ -1085,9 +1079,7 @@ export function evaluateLipidTarget(input) {
   const pad = triStateBoolean(input.pad);
   const microvascular = triStateBoolean(input.diabeticMicrovascularDisease);
   const acs = triStateBoolean(input.acuteCoronarySyndrome);
-  const cad = triStateBoolean(input.coronaryArteryDisease);
-  const stroke = triStateBoolean(input.atherothromboticCerebralInfarction);
-  const combinedVascular = secondaryCombinedVascularState(cad, stroke);
+  const combinedVascular = triStateBoolean(input.combinedCadAtherothromboticStroke);
   const ldl = toNumber(input.ldl);
   const age = toNumber(input.age);
 
@@ -1147,6 +1139,10 @@ export function evaluateLipidTarget(input) {
     if (acs === true) strictReasons.push('acute_coronary_syndrome');
     if (combinedVascular === true) strictReasons.push('combined_cad_and_atherothrombotic_stroke');
 
+    questionState.showSecondarySubtypeQuestion = diabetesState.status !== 'diabetes';
+    questionState.showSecondaryCombinedQuestion =
+      questionState.showSecondarySubtypeQuestion && acs === false;
+
     if (strictReasons.length > 0) {
       const target = LIPID_TARGETS.secondaryStrict;
       return {
@@ -1158,10 +1154,6 @@ export function evaluateLipidTarget(input) {
         atTarget: ldl === null ? null : ldl < target,
       };
     }
-
-    questionState.showSecondarySubtypeQuestion = diabetesState.status !== 'diabetes';
-    questionState.showSecondaryCombinedQuestion =
-      questionState.showSecondarySubtypeQuestion && acs === false;
 
     let strictnessUnresolved = diabetesState.status === 'unresolved';
     if (diabetesState.status !== 'diabetes') {
@@ -1196,6 +1188,10 @@ export function evaluateLipidTarget(input) {
         : pad === true
           ? 'pad'
           : 'diabetic_microvascular_disease';
+      if (input.currentSmoking !== true) {
+        questionState.showPadQuestion = true;
+        questionState.showDiabeticMicrovascularQuestion = pad === false;
+      }
       const target = LIPID_TARGETS.diabetesStrict;
       return {
         ...base,
@@ -1339,6 +1335,9 @@ export function summarizeLipids(input) {
         ? ' 脂質低下療法中です。'
         : '';
     detail = `${reasonLabel}。 ${valueText}${treatmentText}`;
+    if (toNumber(input.age) !== null && toNumber(input.age) >= 80) {
+      detail += ' 80歳以上では全身状態・フレイル等を踏まえて管理目標を個別化します。';
+    }
     tone = targetResult.atTarget === true ? 'good' : targetResult.atTarget === false ? 'warn' : 'neutral';
   } else if (targetResult.status === 'familial_type_iii') {
     title = '家族性III型高脂血症 — 一般フロー対象外';
