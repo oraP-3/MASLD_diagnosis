@@ -278,3 +278,22 @@ test('E1 familial type III branch does not demand general-flow TG or HDL data', 
   assert.equal(missingByKey(result, 'hdl'), undefined);
   assert.equal(result.domains.find((domain) => domain.key === 'lipids').interpretation.id, 'familial_type_iii');
 });
+
+
+test('E1 urinary-stone history remains a next evaluation after the urate treatment branch is already established', () => {
+  const ge9 = buildUnifiedClinicalResult({
+    ...completeBase,
+    uricAcid: 9.2,
+    goutPresent: null,
+    urinaryStone: null,
+  });
+  assert.equal(missingByKey(ge9, 'urinary_stone')?.class, MISSING_DATA_CLASS.nextEvaluation);
+
+  const goutBranch = buildUnifiedClinicalResult({
+    ...completeBase,
+    uricAcid: 7.5,
+    goutPresent: true,
+    urinaryStone: null,
+  });
+  assert.equal(missingByKey(goutBranch, 'urinary_stone')?.class, MISSING_DATA_CLASS.nextEvaluation);
+});
