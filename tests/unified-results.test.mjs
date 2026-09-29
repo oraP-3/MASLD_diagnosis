@@ -254,3 +254,27 @@ test('E1 facts, interpretation and next action remain separate', () => {
   assert.equal(glycemia.interpretation.id, 'known_diabetes_above_general_target');
   assert.match(glycemia.nextAction.title, /治療目標/);
 });
+
+
+test('E1 invalid non-positive FIB-4 inputs remain required instead of silently completing fibrosis', () => {
+  const result = buildUnifiedClinicalResult({
+    ...completeBase,
+    ast: 0,
+  });
+  assert.equal(missingByKey(result, 'ast')?.class, MISSING_DATA_CLASS.required);
+  assert.equal(result.domains.find((domain) => domain.key === 'fibrosis').currentDecisionComplete, false);
+});
+
+test('E1 familial type III branch does not demand general-flow TG or HDL data', () => {
+  const result = buildUnifiedClinicalResult({
+    ...completeBase,
+    familialTypeIII: true,
+    knownFh: false,
+    qualifyingSecondaryPrevention: null,
+    tg: '',
+    hdl: '',
+  });
+  assert.equal(missingByKey(result, 'tg'), undefined);
+  assert.equal(missingByKey(result, 'hdl'), undefined);
+  assert.equal(result.domains.find((domain) => domain.key === 'lipids').interpretation.id, 'familial_type_iii');
+});
