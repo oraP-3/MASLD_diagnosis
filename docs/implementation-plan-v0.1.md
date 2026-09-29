@@ -225,17 +225,21 @@ Acceptance:
 ### Phase E — Lipids
 
 Implement:
-- secondary-prevention routing
+- lipid-specific secondary-prevention routing
 - DM / CKD / PAD high-risk routing
 - modified Hisayama calculation
+- known-FH / LDL-C >=180 guard
 - conditional diabetic microvascular question
 - LDL target
-- TG fasting-status conditional prompt
+- TG fasting / casual interpretation without a routine fasting-status prompt
 
 Acceptance:
-- diagnosed diabetes bypasses Hisayama
+- diagnosed / established diabetes bypasses Hisayama
+- unresolved diabetic-range glycemia does not get downgraded to a 1-point glucose-abnormality state
 - non-diabetic HbA1c 5.7–6.4% / FPG 100–125 may contribute the glucose-abnormality point
+- broad BP CVD history is not reused as lipid secondary prevention
 - risk score is calculated internally, not manually entered
+- TG 150–174 mg/dL does not trigger a lipid fasting-status question solely for target classification
 
 ### Phase F — Unified result view
 
