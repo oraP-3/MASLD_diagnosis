@@ -143,6 +143,26 @@ For non-diabetic, proteinuria-negative CKD:
 
 Therefore proteinuria is not required merely to choose the final default BP target.
 
+## Shared CKD input placement
+
+CKD is not owned by the BP engine alone.
+
+Use two shared baseline fields in the application:
+- current eGFR as a numeric value
+- CKD diagnosed / established as a yes/no flag
+
+Rationale:
+- CKD diagnosis is not equivalent to one eGFR measurement. Current Japanese CKD guidance defines CKD by kidney damage and/or GFR <60 mL/min/1.73m² persisting for more than 3 months.
+- CKD can exist with eGFR >=60 when persistent kidney-damage markers are present.
+- The same CKD state is needed later by the lipid engine and is also relevant to the uric-acid complication branch.
+
+Therefore:
+- do not automatically switch `CKD diagnosed` on from one eGFR <60 result;
+- do not hide CKD entirely inside the hypertension section;
+- do not require proteinuria as a universal baseline field.
+
+Proteinuria remains a conditional BP risk modifier.
+
 ## Proteinuria: decision-relevant use in this app
 
 In JSH2025 risk stratification, **proteinuric CKD** is a high-risk trigger.
