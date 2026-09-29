@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { calculateBmi, deriveCmrf, evaluateGlycemia, evaluateUricAcid, classifySld, calculateFib4, evaluateFib4, evaluatePlatelets, shouldShowNit, interpretNit } from '../clinical-rules.js';
+import { calculateBmi, deriveCmrf, evaluateGlycemia, classifyOfficeBp, evaluateBpDyslipidemia, evaluateBloodPressure, evaluateUricAcid, classifySld, calculateFib4, evaluateFib4, evaluatePlatelets, shouldShowNit, interpretNit } from '../clinical-rules.js';
 
 test('BMI helper rounds to one decimal place',()=>assert.equal(calculateBmi(182,88),26.6));
 test('CMRF is derived from numeric inputs without manual checkboxes',()=>{const c=deriveCmrf({sex:'male',bmi:22.5,waist:90,hba1c:5.8,sbp:125,dbp:78,tg:120,hdl:55,diagnosedDiabetes:false,antihypertensiveTreatment:false,lipidTreatment:false});assert.equal(c.statuses.glucose,true);assert.equal(c.count,1)});
@@ -52,3 +52,218 @@ test('glucose CMRF stays unresolved when HbA1c is negative but fasting glucose i
 test('glucose CMRF stays unresolved when fasting glucose is negative but HbA1c is missing',()=>{const c=deriveCmrf({sex:'male',bmi:22.5,waist:90,hba1c:'',fastingGlucose:99,sbp:120,dbp:75,tg:110,hdl:60,diagnosedDiabetes:false,antihypertensiveTreatment:false,lipidTreatment:false});assert.equal(c.statuses.glucose,null);assert.ok(c.unknownKeys.includes('glucose'));assert.equal(c.canRuleOutAll,false)});
 test('random glucose field stays visible after it confirms diabetic-type glucose',()=>{const r=evaluateGlycemia({diagnosedDiabetes:false,hba1c:6.6,fastingGlucose:110,randomGlucose:205});assert.equal(r.id,'hba1c_and_glucose_diabetic_range');assert.equal(r.needsGlucoseConfirmation,false);assert.equal(r.showRandomGlucose,true)});
 test('random glucose field can hide when fasting glucose already confirms and random glucose is empty',()=>{const r=evaluateGlycemia({diagnosedDiabetes:false,hba1c:6.6,fastingGlucose:126,randomGlucose:''});assert.equal(r.id,'hba1c_and_glucose_diabetic_range');assert.equal(r.showRandomGlucose,false)});
+
+
+const bpBase = {
+  age: 50,
+  sex: 'female',
+  sbp: 132,
+  dbp: 82,
+  ldl: 100,
+  hdl: 60,
+  tg: 100,
+  tgFastingStatus: '',
+  currentSmoking: false,
+  lipidTreatment: false,
+  diagnosedDiabetes: false,
+  diagnosedCkd: false,
+  cvdHistory: false,
+  atrialFibrillation: false,
+  proteinuriaPresent: null,
+  antihypertensiveTreatment: false,
+  bpPersistence: '',
+};
+
+test('office BP classification uses the higher SBP or DBP category',()=>{
+  assert.equal(classifyOfficeBp(118,76).id,'normal');
+  assert.equal(classifyOfficeBp(125,76).id,'elevated_normal');
+  assert.equal(classifyOfficeBp(125,82).id,'elevated');
+  assert.equal(classifyOfficeBp(145,85).id,'grade1');
+  assert.equal(classifyOfficeBp(130,102).id,'grade2');
+  assert.equal(classifyOfficeBp(181,75).id,'grade3');
+});
+
+test('untreated BP at or above 130/80 requests persistence confirmation',()=>{
+  const r=evaluateBloodPressure(bpBase);
+  assert.equal(r.category.id,'elevated');
+  assert.equal(r.showPersistenceQuestion,true);
+  assert.equal(r.persistenceConfirmed,false);
+  assert.equal(r.timingClass,'needs_confirmation');
+});
+
+test('confirmed low-risk elevated BP remains lifestyle and planned reassessment',()=>{
+  const r=evaluateBloodPressure({...bpBase,bpPersistence:'home'});
+  assert.equal(r.riskLevel,'low');
+  assert.equal(r.persistenceConfirmed,true);
+  assert.equal(r.timingClass,'lifestyle_planned_reassessment');
+});
+
+test('diabetes makes elevated BP high risk and shortens reassessment after persistence confirmation',()=>{
+  const r=evaluateBloodPressure({...bpBase,diagnosedDiabetes:true,bpPersistence:'other_office'});
+  assert.equal(r.riskLevel,'high');
+  assert.ok(r.highRiskReasons.includes('diabetes'));
+  assert.equal(r.timingClass,'short_interval_reassessment_with_pharmacologic_consideration');
+});
+
+test('CVD and atrial fibrillation independently create high-risk BP branches',()=>{
+  const cvd=evaluateBloodPressure({...bpBase,cvdHistory:true,bpPersistence:'home'});
+  const af=evaluateBloodPressure({...bpBase,atrialFibrillation:true,bpPersistence:'home'});
+  assert.equal(cvd.riskLevel,'high');
+  assert.ok(cvd.highRiskReasons.includes('cvd'));
+  assert.equal(af.riskLevel,'high');
+  assert.ok(af.highRiskReasons.includes('atrial_fibrillation'));
+});
+
+test('proteinuria is requested only when established CKD can change elevated-BP risk',()=>{
+  const pending=evaluateBloodPressure({...bpBase,diagnosedCkd:true});
+  assert.equal(pending.showProteinuriaQuestion,true);
+  assert.equal(pending.needsProteinuria,true);
+  assert.equal(pending.riskLevel,'unresolved');
+
+  const positive=evaluateBloodPressure({...bpBase,diagnosedCkd:true,proteinuriaPresent:true,bpPersistence:'home'});
+  assert.equal(positive.showProteinuriaQuestion,true);
+  assert.equal(positive.needsProteinuria,false);
+  assert.equal(positive.riskLevel,'high');
+  assert.ok(positive.highRiskReasons.includes('proteinuric_ckd'));
+
+  const negative=evaluateBloodPressure({...bpBase,diagnosedCkd:true,proteinuriaPresent:false,bpPersistence:'home'});
+  assert.equal(negative.riskLevel,'low');
+});
+
+test('grade II CKD can keep risk bounded without asking proteinuria when action timing is unchanged',()=>{
+  const r=evaluateBloodPressure({...bpBase,sbp:165,dbp:92,diagnosedCkd:true});
+  assert.equal(r.category.id,'grade2');
+  assert.equal(r.showProteinuriaQuestion,false);
+  assert.equal(r.riskLevel,'unresolved');
+  assert.ok(r.possibleRisks.includes('moderate'));
+  assert.ok(r.possibleRisks.includes('high'));
+  assert.equal(r.timingClass,'prompt_confirmation');
+});
+
+test('three layer-2 factors produce high risk without another trigger',()=>{
+  const r=evaluateBloodPressure({...bpBase,age:65,sex:'male',currentSmoking:true,bpPersistence:'home'});
+  assert.equal(r.riskLevel,'high');
+  assert.ok(r.highRiskReasons.includes('three_layer2_factors'));
+});
+
+test('BP dyslipidemia thresholds follow the locked LDL HDL and fasting/nonfasting TG rules',()=>{
+  assert.equal(evaluateBpDyslipidemia({...bpBase,ldl:140}).status,true);
+  assert.equal(evaluateBpDyslipidemia({...bpBase,hdl:39}).status,true);
+  assert.equal(evaluateBpDyslipidemia({...bpBase,tg:150,tgFastingStatus:'fasting'}).status,true);
+  assert.equal(evaluateBpDyslipidemia({...bpBase,tg:174,tgFastingStatus:'nonfasting'}).status,false);
+  assert.equal(evaluateBpDyslipidemia({...bpBase,tg:175,tgFastingStatus:'nonfasting'}).status,true);
+});
+
+test('TG 150-174 asks fasting status only when it can change the JSH risk tier',()=>{
+  const unresolved=evaluateBloodPressure({
+    ...bpBase,
+    age:65,
+    sex:'male',
+    tg:160,
+    tgFastingStatus:'',
+  });
+  assert.equal(unresolved.showTgFastingQuestion,true);
+  assert.equal(unresolved.needsTgFastingStatus,true);
+
+  const nonfasting=evaluateBloodPressure({
+    ...bpBase,
+    age:65,
+    sex:'male',
+    tg:160,
+    tgFastingStatus:'nonfasting',
+    bpPersistence:'home',
+  });
+  const fasting=evaluateBloodPressure({
+    ...bpBase,
+    age:65,
+    sex:'male',
+    tg:160,
+    tgFastingStatus:'fasting',
+    bpPersistence:'home',
+  });
+  assert.equal(nonfasting.riskLevel,'moderate');
+  assert.equal(fasting.riskLevel,'high');
+  assert.equal(fasting.showTgFastingQuestion,true);
+});
+
+test('grade I high risk does not emit medication-start timing before persistence is confirmed',()=>{
+  const unconfirmed=evaluateBloodPressure({...bpBase,sbp:145,dbp:92,diagnosedDiabetes:true});
+  const confirmed=evaluateBloodPressure({...bpBase,sbp:145,dbp:92,diagnosedDiabetes:true,bpPersistence:'home'});
+  assert.equal(unconfirmed.timingClass,'prompt_confirmation_high_risk');
+  assert.equal(confirmed.timingClass,'prompt_pharmacologic_consideration');
+});
+
+test('treated patients skip persistence confirmation and use target context',()=>{
+  const within=evaluateBloodPressure({...bpBase,sbp:125,dbp:78,antihypertensiveTreatment:true});
+  const above=evaluateBloodPressure({...bpBase,sbp:135,dbp:82,antihypertensiveTreatment:true});
+  assert.equal(within.showPersistenceQuestion,false);
+  assert.equal(within.timingClass,'treated_within_target');
+  assert.equal(above.showPersistenceQuestion,false);
+  assert.equal(above.timingClass,'treated_above_target');
+});
+
+test('grade III BP uses urgent assessment and skips routine persistence question',()=>{
+  const r=evaluateBloodPressure({...bpBase,sbp:182,dbp:105});
+  assert.equal(r.category.id,'grade3');
+  assert.equal(r.timingClass,'urgent_assessment');
+  assert.equal(r.showPersistenceQuestion,false);
+  assert.equal(r.riskLevel,'high');
+});
+
+test('diagnosed CKD is reused by the uric-acid 8 mg/dL complication branch',()=>{
+  const r=evaluateUricAcid({
+    uricAcid:8.2,
+    urateTreatment:false,
+    goutPresent:false,
+    urinaryStone:false,
+    otherUrateComplication:null,
+    diagnosedDiabetes:false,
+    antihypertensiveTreatment:false,
+    diagnosedCkd:true,
+  });
+  assert.equal(r.id,'asymptomatic_ge8_with_complication');
+  assert.equal(r.showComplicationQuestion,false);
+});
+
+test('one low eGFR value does not by itself become established CKD in the uric-acid branch',()=>{
+  const r=evaluateUricAcid({
+    uricAcid:8.2,
+    urateTreatment:false,
+    goutPresent:false,
+    urinaryStone:false,
+    otherUrateComplication:null,
+    diagnosedDiabetes:false,
+    antihypertensiveTreatment:false,
+    diagnosedCkd:false,
+    eGfr:45,
+  });
+  assert.equal(r.id,'needs_complication');
+});
+
+
+test('treated grade III BP still routes to urgent assessment',()=>{
+  const r=evaluateBloodPressure({...bpBase,sbp:182,dbp:112,antihypertensiveTreatment:true});
+  assert.equal(r.category.id,'grade3');
+  assert.equal(r.timingClass,'urgent_assessment');
+  assert.equal(r.showPersistenceQuestion,false);
+});
+
+test('known diabetes suppresses redundant CVD and AF prompt when elevated-BP risk is already high',()=>{
+  const r=evaluateBloodPressure({...bpBase,diagnosedDiabetes:true});
+  assert.equal(r.riskLevel,'high');
+  assert.equal(r.showRiskBackground,false);
+  assert.equal(r.showTgFastingQuestion,false);
+  assert.equal(r.showProteinuriaQuestion,false);
+});
+
+test('three known layer-2 factors suppress redundant CVD and AF prompt',()=>{
+  const r=evaluateBloodPressure({...bpBase,age:65,sex:'male',currentSmoking:true});
+  assert.equal(r.riskLevel,'high');
+  assert.equal(r.showRiskBackground,false);
+});
+
+test('confirmed high-risk elevated BP preserves both short-interval reassessment and drug consideration state',()=>{
+  const r=evaluateBloodPressure({...bpBase,diagnosedDiabetes:true,bpPersistence:'home'});
+  assert.equal(r.riskLevel,'high');
+  assert.equal(r.timingClass,'short_interval_reassessment_with_pharmacologic_consideration');
+});

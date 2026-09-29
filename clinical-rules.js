@@ -245,6 +245,327 @@ export function evaluateGlycemia(input) {
   };
 }
 
+
+export const BP_THRESHOLDS = Object.freeze({
+  officeTargetSbp: 130,
+  officeTargetDbp: 80,
+  dyslipidemia: {
+    ldl: 140,
+    hdl: 40,
+    tgFasting: 150,
+    tgNonfasting: 175,
+  },
+});
+
+const BP_CATEGORY_META = Object.freeze({
+  normal: { rank: 0, label: '正常血圧' },
+  elevated_normal: { rank: 1, label: '正常高値血圧' },
+  elevated: { rank: 2, label: '高値血圧' },
+  grade1: { rank: 3, label: 'I度高血圧' },
+  grade2: { rank: 4, label: 'II度高血圧' },
+  grade3: { rank: 5, label: 'III度高血圧' },
+});
+
+function systolicBpCategory(value) {
+  if (value >= 180) return 'grade3';
+  if (value >= 160) return 'grade2';
+  if (value >= 140) return 'grade1';
+  if (value >= 130) return 'elevated';
+  if (value >= 120) return 'elevated_normal';
+  return 'normal';
+}
+
+function diastolicBpCategory(value) {
+  if (value >= 110) return 'grade3';
+  if (value >= 100) return 'grade2';
+  if (value >= 90) return 'grade1';
+  if (value >= 80) return 'elevated';
+  return 'normal';
+}
+
+export function classifyOfficeBp(sbp, dbp) {
+  const s = toNumber(sbp);
+  const d = toNumber(dbp);
+  if (s === null || d === null) return null;
+  const sId = systolicBpCategory(s);
+  const dId = diastolicBpCategory(d);
+  const id = BP_CATEGORY_META[sId].rank >= BP_CATEGORY_META[dId].rank ? sId : dId;
+  return { id, ...BP_CATEGORY_META[id], sbp: s, dbp: d };
+}
+
+export function evaluateBpDyslipidemia(input) {
+  if (input.lipidTreatment) {
+    return { status: true, reason: 'lipid_treatment', needsFastingStatusCandidate: false };
+  }
+
+  const ldl = toNumber(input.ldl);
+  const hdl = toNumber(input.hdl);
+  const tg = toNumber(input.tg);
+  const fastingStatus = input.tgFastingStatus || '';
+
+  if (ldl !== null && ldl >= BP_THRESHOLDS.dyslipidemia.ldl) {
+    return { status: true, reason: 'ldl', needsFastingStatusCandidate: false };
+  }
+  if (hdl !== null && hdl < BP_THRESHOLDS.dyslipidemia.hdl) {
+    return { status: true, reason: 'hdl', needsFastingStatusCandidate: false };
+  }
+  if (tg !== null && tg >= BP_THRESHOLDS.dyslipidemia.tgNonfasting) {
+    return { status: true, reason: 'tg', needsFastingStatusCandidate: false };
+  }
+  if (
+    tg !== null &&
+    tg >= BP_THRESHOLDS.dyslipidemia.tgFasting &&
+    tg < BP_THRESHOLDS.dyslipidemia.tgNonfasting
+  ) {
+    if (fastingStatus === 'fasting') {
+      return { status: true, reason: 'tg_fasting', needsFastingStatusCandidate: false };
+    }
+    if (fastingStatus === 'nonfasting' && ldl !== null && hdl !== null) {
+      return { status: false, reason: 'all_negative', needsFastingStatusCandidate: false };
+    }
+    const candidate = ldl !== null && ldl < BP_THRESHOLDS.dyslipidemia.ldl &&
+      hdl !== null && hdl >= BP_THRESHOLDS.dyslipidemia.hdl;
+    return { status: null, reason: 'tg_fasting_unknown', needsFastingStatusCandidate: candidate };
+  }
+
+  if (ldl !== null && hdl !== null && tg !== null) {
+    return { status: false, reason: 'all_negative', needsFastingStatusCandidate: false };
+  }
+
+  return { status: null, reason: 'insufficient_lipids', needsFastingStatusCandidate: false };
+}
+
+function bpRiskFrom(categoryId, layer2Count, highRiskTrigger) {
+  if (categoryId === 'grade3') return 'high';
+  if (highRiskTrigger || layer2Count >= 3) return 'high';
+  if (categoryId === 'grade2') return layer2Count === 0 ? 'moderate' : 'high';
+  if (categoryId === 'elevated' || categoryId === 'grade1') {
+    if (layer2Count === 0) return 'low';
+    return 'moderate';
+  }
+  return 'not_applicable';
+}
+
+function possibleBpRiskLevels(input, categoryId, overrides = {}) {
+  if (!['elevated', 'grade1', 'grade2', 'grade3'].includes(categoryId)) return ['not_applicable'];
+  if (categoryId === 'grade3') return ['high'];
+
+  const age = toNumber(input.age);
+  const ageOptions = age === null ? [false, true] : [age >= 65];
+  const sexOptions = input.sex === 'male' ? [true] : input.sex === 'female' ? [false] : [false, true];
+
+  const dys = evaluateBpDyslipidemia(input);
+  const dysStatus = Object.prototype.hasOwnProperty.call(overrides, 'dyslipidemia')
+    ? overrides.dyslipidemia
+    : dys.status;
+  const dysOptions = dysStatus === null ? [false, true] : [Boolean(dysStatus)];
+
+  const cvdStatus = Object.prototype.hasOwnProperty.call(overrides, 'cvdHistory')
+    ? overrides.cvdHistory
+    : input.cvdHistory;
+  const afStatus = Object.prototype.hasOwnProperty.call(overrides, 'atrialFibrillation')
+    ? overrides.atrialFibrillation
+    : input.atrialFibrillation;
+  const cvdOptions = cvdStatus === null || cvdStatus === undefined ? [false, true] : [Boolean(cvdStatus)];
+  const afOptions = afStatus === null || afStatus === undefined ? [false, true] : [Boolean(afStatus)];
+
+  let proteinStatus = false;
+  if (input.diagnosedCkd) {
+    proteinStatus = Object.prototype.hasOwnProperty.call(overrides, 'proteinuriaPresent')
+      ? overrides.proteinuriaPresent
+      : input.proteinuriaPresent;
+  }
+  const proteinOptions = proteinStatus === null || proteinStatus === undefined
+    ? [false, true]
+    : [Boolean(proteinStatus)];
+
+  const levels = new Set();
+  for (const ageRisk of ageOptions) {
+    for (const maleRisk of sexOptions) {
+      for (const dysRisk of dysOptions) {
+        for (const cvd of cvdOptions) {
+          for (const af of afOptions) {
+            for (const protein of proteinOptions) {
+              const layer2Count = [ageRisk, maleRisk, dysRisk, Boolean(input.currentSmoking)].filter(Boolean).length;
+              const highTrigger = Boolean(input.diagnosedDiabetes) || cvd || af || protein;
+              levels.add(bpRiskFrom(categoryId, layer2Count, highTrigger));
+            }
+          }
+        }
+      }
+    }
+  }
+
+  const order = ['low', 'moderate', 'high', 'not_applicable'];
+  return [...levels].sort((a, b) => order.indexOf(a) - order.indexOf(b));
+}
+
+function sameStringArray(a, b) {
+  return a.length === b.length && a.every((value, index) => value === b[index]);
+}
+
+export function evaluateBloodPressure(input) {
+  const category = classifyOfficeBp(input.sbp, input.dbp);
+  if (!category) {
+    return {
+      category: null,
+      riskLevel: 'unresolved',
+      possibleRisks: [],
+      highRiskReasons: [],
+      showRiskBackground: false,
+      showPersistenceQuestion: false,
+      persistenceConfirmed: false,
+      showProteinuriaQuestion: false,
+      needsProteinuria: false,
+      showTgFastingQuestion: false,
+      needsTgFastingStatus: false,
+      timingClass: 'pending',
+    };
+  }
+
+  const treated = Boolean(input.antihypertensiveTreatment);
+  const riskApplicable = ['elevated', 'grade1', 'grade2', 'grade3'].includes(category.id);
+  const dys = evaluateBpDyslipidemia(input);
+
+  const age = toNumber(input.age);
+  const knownLayer2Count = [
+    age !== null && age >= 65,
+    input.sex === 'male',
+    dys.status === true,
+    Boolean(input.currentSmoking),
+  ].filter(Boolean).length;
+
+  const highRiskReasons = [];
+  if (input.diagnosedDiabetes) highRiskReasons.push('diabetes');
+  if (input.cvdHistory === true) highRiskReasons.push('cvd');
+  if (input.atrialFibrillation === true) highRiskReasons.push('atrial_fibrillation');
+  if (input.diagnosedCkd && input.proteinuriaPresent === true) highRiskReasons.push('proteinuric_ckd');
+  if (knownLayer2Count >= 3) highRiskReasons.push('three_layer2_factors');
+
+  const possibleRisks = possibleBpRiskLevels(input, category.id);
+  const riskLevel = possibleRisks.length === 1 ? possibleRisks[0] : 'unresolved';
+
+  const highRiskEstablishedWithoutCvdAf =
+    Boolean(input.diagnosedDiabetes) ||
+    knownLayer2Count >= 3 ||
+    (Boolean(input.diagnosedCkd) && input.proteinuriaPresent === true);
+  const showRiskBackground =
+    !treated &&
+    ['elevated', 'grade1'].includes(category.id) &&
+    !highRiskEstablishedWithoutCvdAf;
+
+  const riskBackgroundResolved =
+    highRiskEstablishedWithoutCvdAf ||
+    (
+      input.cvdHistory !== null && input.cvdHistory !== undefined &&
+      input.atrialFibrillation !== null && input.atrialFibrillation !== undefined
+    );
+
+  const riskWithoutProtein = possibleBpRiskLevels(input, category.id, { proteinuriaPresent: false });
+  const riskWithProtein = possibleBpRiskLevels(input, category.id, { proteinuriaPresent: true });
+  const otherHighRiskEstablished =
+    Boolean(input.diagnosedDiabetes) ||
+    input.cvdHistory === true ||
+    input.atrialFibrillation === true ||
+    knownLayer2Count >= 3;
+  const showProteinuriaQuestion =
+    !treated &&
+    ['elevated', 'grade1'].includes(category.id) &&
+    Boolean(input.diagnosedCkd) &&
+    riskBackgroundResolved &&
+    !otherHighRiskEstablished &&
+    !sameStringArray(riskWithoutProtein, riskWithProtein);
+  const needsProteinuria =
+    showProteinuriaQuestion &&
+    (input.proteinuriaPresent === null || input.proteinuriaPresent === undefined);
+
+  const ldl = toNumber(input.ldl);
+  const hdl = toNumber(input.hdl);
+  const tg = toNumber(input.tg);
+  const tgBorderlineCanResolveDyslipidemia =
+    !input.lipidTreatment &&
+    ldl !== null && ldl < BP_THRESHOLDS.dyslipidemia.ldl &&
+    hdl !== null && hdl >= BP_THRESHOLDS.dyslipidemia.hdl &&
+    tg !== null &&
+    tg >= BP_THRESHOLDS.dyslipidemia.tgFasting &&
+    tg < BP_THRESHOLDS.dyslipidemia.tgNonfasting;
+
+  let showTgFastingQuestion = false;
+  if (
+    !treated &&
+    riskApplicable &&
+    category.id !== 'grade3' &&
+    tgBorderlineCanResolveDyslipidemia &&
+    riskBackgroundResolved
+  ) {
+    const riskIfNonfasting = possibleBpRiskLevels(
+      { ...input, tgFastingStatus: 'nonfasting' },
+      category.id,
+      { dyslipidemia: false }
+    );
+    const riskIfFasting = possibleBpRiskLevels(
+      { ...input, tgFastingStatus: 'fasting' },
+      category.id,
+      { dyslipidemia: true }
+    );
+    showTgFastingQuestion = !sameStringArray(riskIfNonfasting, riskIfFasting);
+  }
+  const needsTgFastingStatus = showTgFastingQuestion && !input.tgFastingStatus;
+
+  const persistence = input.bpPersistence || '';
+  const persistenceConfirmed = persistence === 'other_office' || persistence === 'home';
+  const showPersistenceQuestion = !treated && ['elevated', 'grade1', 'grade2'].includes(category.id);
+
+  let timingClass = 'no_hypertension_action';
+  if (category.id === 'grade3') {
+    timingClass = 'urgent_assessment';
+  } else if (treated) {
+    const sbp = toNumber(input.sbp);
+    const dbp = toNumber(input.dbp);
+    timingClass = sbp < BP_THRESHOLDS.officeTargetSbp && dbp < BP_THRESHOLDS.officeTargetDbp
+      ? 'treated_within_target'
+      : 'treated_above_target';
+  } else if (category.id === 'grade2') {
+    timingClass = persistenceConfirmed ? 'prompt_pharmacologic_consideration' : 'prompt_confirmation';
+  } else if (category.id === 'grade1') {
+    if (!persistenceConfirmed) {
+      timingClass = riskLevel === 'high' ? 'prompt_confirmation_high_risk' : 'needs_confirmation';
+    } else if (riskLevel === 'high') {
+      timingClass = 'prompt_pharmacologic_consideration';
+    } else if (riskLevel === 'unresolved') {
+      timingClass = 'needs_risk_resolution';
+    } else {
+      timingClass = 'short_interval_reassessment';
+    }
+  } else if (category.id === 'elevated') {
+    if (!persistenceConfirmed) {
+      timingClass = 'needs_confirmation';
+    } else if (riskLevel === 'high') {
+      timingClass = 'short_interval_reassessment_with_pharmacologic_consideration';
+    } else if (riskLevel === 'unresolved') {
+      timingClass = 'needs_risk_resolution';
+    } else {
+      timingClass = 'lifestyle_planned_reassessment';
+    }
+  }
+
+  return {
+    category,
+    riskLevel,
+    possibleRisks,
+    highRiskReasons,
+    dyslipidemiaStatus: dys.status,
+    showRiskBackground,
+    showPersistenceQuestion,
+    persistenceConfirmed,
+    showProteinuriaQuestion,
+    needsProteinuria,
+    showTgFastingQuestion,
+    needsTgFastingStatus,
+    timingClass,
+  };
+}
+
 export function evaluateUricAcid(input) {
   const ua = toNumber(input.uricAcid);
   const treated = Boolean(input.urateTreatment);
@@ -334,12 +655,14 @@ export function evaluateUricAcid(input) {
     const knownComplication =
       Boolean(input.diagnosedDiabetes) ||
       Boolean(input.antihypertensiveTreatment) ||
+      Boolean(input.diagnosedCkd) ||
       stone === true ||
       otherComplication === true;
     const complicationResolved = knownComplication || (stone === false && otherComplication === false);
     const showComplicationQuestion =
       !input.diagnosedDiabetes &&
       !input.antihypertensiveTreatment &&
+      !input.diagnosedCkd &&
       stone !== true;
 
     if (!complicationResolved) {

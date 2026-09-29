@@ -1,4 +1,4 @@
-import { calculateBmi, deriveCmrf, evaluateGlycemia, evaluateUricAcid, classifySld, calculateFib4, evaluateFib4, evaluatePlatelets, shouldShowNit, interpretNit } from './clinical-rules.js';
+import { calculateBmi, deriveCmrf, evaluateGlycemia, evaluateBloodPressure, evaluateUricAcid, classifySld, calculateFib4, evaluateFib4, evaluatePlatelets, shouldShowNit, interpretNit } from './clinical-rules.js';
 
 const DRINKS = [
   { id: 'beer', label: 'ビール・発泡酒 5%', unit: 'mL', gramsPerUnit: 0.04, step: 50, placeholder: '例 500' },
@@ -19,9 +19,12 @@ function boolRadio(name) { const v = radioValue(name); return v === 'true' ? tru
 function currentInput() {
   return {
     age: value('age'), sex: radioValue('sex'), bmi: value('bmi'), waist: value('waist'), sbp: value('sbp'), dbp: value('dbp'),
-    hba1c: value('hba1c'), fastingGlucose: value('fastingGlucose'), randomGlucose: value('randomGlucose'),
+    eGfr: value('eGfr'), ldl: value('ldl'), hba1c: value('hba1c'), fastingGlucose: value('fastingGlucose'), randomGlucose: value('randomGlucose'),
     separateDayDiabeticTypeConfirmed: checked('separateDayDiabeticTypeConfirmed'), tg: value('tg'), hdl: value('hdl'),
-    antihypertensiveTreatment: checked('antihypertensiveTreatment'), diagnosedDiabetes: checked('diagnosedDiabetes'), lipidTreatment: checked('lipidTreatment'),
+    antihypertensiveTreatment: checked('antihypertensiveTreatment'), diagnosedDiabetes: checked('diagnosedDiabetes'),
+    diagnosedCkd: checked('diagnosedCkd'), lipidTreatment: checked('lipidTreatment'), currentSmoking: checked('currentSmoking'),
+    cvdHistory: boolRadio('cvdHistory'), atrialFibrillation: boolRadio('atrialFibrillation'),
+    proteinuriaPresent: boolRadio('proteinuriaPresent'), tgFastingStatus: radioValue('tgFastingStatus'), bpPersistence: radioValue('bpPersistence'),
     steatosis: boolRadio('steatosis'), alcoholGWeek: value('alcoholGWeek'), otherCause: checked('otherCause'),
     ast: value('ast'), alt: value('alt'), plateletsWan: value('plateletsWan'),
     uricAcid: value('uricAcid'), urateTreatment: checked('urateTreatment'),
@@ -52,6 +55,28 @@ function renderGlycemia(input) {
   $('separateDayDiabeticConfirm').classList.toggle('hidden', !showSeparateDayConfirmation);
   if (!showSeparateDayConfirmation) $('separateDayDiabeticTypeConfirmed').checked = false;
   setResultCard($('glycemiaResult'), '糖代謝', r.title, r.detail, r.tone);
+}
+
+function renderBloodPressure(input) {
+  const r = evaluateBloodPressure(input);
+  $('bpRiskBackgroundPrompt').classList.toggle('hidden', !r.showRiskBackground);
+  $('bpTgFastingPrompt').classList.toggle('hidden', !r.showTgFastingQuestion);
+  $('bpProteinuriaPrompt').classList.toggle('hidden', !r.showProteinuriaQuestion);
+  $('bpPersistencePrompt').classList.toggle('hidden', !r.showPersistenceQuestion);
+
+  if (!r.category) {
+    setResultCard($('bpCategoryResult'), '診察室血圧', '入力待ち', '収縮期・拡張期血圧を入力してください。');
+    return;
+  }
+
+  let detail = '現在の診察室血圧分類です。';
+  if (r.riskLevel === 'high') detail = 'JSH2025の内部リスク判定：高リスク。';
+  else if (r.riskLevel === 'moderate') detail = 'JSH2025の内部リスク判定：中等リスク。';
+  else if (r.riskLevel === 'low') detail = 'JSH2025の内部リスク判定：低リスク。';
+  else if (r.riskLevel === 'unresolved' && r.possibleRisks.length) detail = '追加情報によりJSH2025の内部リスク判定が変わる可能性があります。';
+
+  const tone = r.category.id === 'grade3' ? 'bad' : ['elevated', 'grade1', 'grade2'].includes(r.category.id) ? 'warn' : 'good';
+  setResultCard($('bpCategoryResult'), '診察室血圧', r.category.label, detail, tone);
 }
 
 function renderUricAcid(input) {
@@ -87,7 +112,7 @@ function renderNit() {
     : '<p class="microcopy">利用可能なNITがあれば入力してください。未入力の検査を不足データとしては扱いません。</p>';
 }
 
-function renderAll() { const input = currentInput(); const cmrf = deriveCmrf(input); renderCmrf(cmrf); renderGlycemia(input); renderSld(input, cmrf); renderFibrosis(input); renderUricAcid(input); }
+function renderAll() { const input = currentInput(); const cmrf = deriveCmrf(input); renderCmrf(cmrf); renderGlycemia(input); renderBloodPressure(input); renderSld(input, cmrf); renderFibrosis(input); renderUricAcid(input); }
 
 function setupDrinkHelper() {
   $('drinkRows').innerHTML = DRINKS.map(({ id, label, unit, gramsPerUnit, step, placeholder }) => `

@@ -40,8 +40,10 @@
       <div class="grid cols-3 top-gap">
         <label>収縮期血圧 mmHg<input id="sbp" type="number" min="60" max="280" inputmode="numeric" /></label>
         <label>拡張期血圧 mmHg<input id="dbp" type="number" min="30" max="180" inputmode="numeric" /></label>
+        <label>eGFR mL/min/1.73m²<input id="eGfr" type="number" min="1" max="200" step="0.1" inputmode="decimal" /></label>
         <label>空腹時血糖 mg/dL<input id="fastingGlucose" type="number" min="20" max="1000" step="1" inputmode="numeric" /></label>
         <label>HbA1c %<input id="hba1c" type="number" min="3" max="20" step="0.1" inputmode="decimal" /></label>
+        <label>LDL-C mg/dL<input id="ldl" type="number" min="1" max="500" inputmode="numeric" /></label>
         <label>中性脂肪 mg/dL<input id="tg" type="number" min="20" max="3000" inputmode="numeric" /></label>
         <label>HDL-C mg/dL<input id="hdl" type="number" min="5" max="200" inputmode="numeric" /></label>
       </div>
@@ -49,7 +51,9 @@
       <div class="check-grid top-gap">
         <label class="choice-card"><input id="antihypertensiveTreatment" type="checkbox" /> 降圧薬使用中</label>
         <label class="choice-card"><input id="diagnosedDiabetes" type="checkbox" /> 糖尿病診断済み／治療中</label>
+        <label class="choice-card"><input id="diagnosedCkd" type="checkbox" /> CKD診断済み</label>
         <label class="choice-card"><input id="lipidTreatment" type="checkbox" /> 脂質異常症治療中</label>
+        <label class="choice-card"><input id="currentSmoking" type="checkbox" /> 現在喫煙</label>
       </div>
     </section>
 
@@ -70,7 +74,55 @@
     </section>
 
     <section class="card">
-      <div class="section-heading"><div><span class="step">3</span><h2>SLD分類</h2></div></div>
+      <div class="section-heading"><div><span class="step">3</span><h2>血圧</h2></div></div>
+      <div id="bpCategoryResult" class="result-card neutral"><p class="result-label">診察室血圧</p><h3>入力待ち</h3><p>収縮期・拡張期血圧を入力してください。</p></div>
+
+      <div id="bpRiskBackgroundPrompt" class="conditional-box hidden">
+        <strong>高リスク背景の確認</strong>
+        <div class="grid cols-2">
+          <fieldset class="inline-fieldset">
+            <legend>脳・心血管疾患の既往</legend>
+            <label class="choice"><input type="radio" name="cvdHistory" value="true" /> あり</label>
+            <label class="choice"><input type="radio" name="cvdHistory" value="false" /> なし</label>
+          </fieldset>
+          <fieldset class="inline-fieldset">
+            <legend>心房細動</legend>
+            <label class="choice"><input type="radio" name="atrialFibrillation" value="true" /> あり</label>
+            <label class="choice"><input type="radio" name="atrialFibrillation" value="false" /> なし</label>
+          </fieldset>
+        </div>
+      </div>
+
+      <div id="bpTgFastingPrompt" class="conditional-box hidden">
+        <strong>中性脂肪の採血条件</strong>
+        <p>TG 150–174 mg/dLで、空腹時かどうかによりJSHリスク判定が変わる可能性があります。</p>
+        <fieldset class="inline-fieldset">
+          <label class="choice"><input type="radio" name="tgFastingStatus" value="fasting" /> 空腹時</label>
+          <label class="choice"><input type="radio" name="tgFastingStatus" value="nonfasting" /> 非空腹時</label>
+        </fieldset>
+      </div>
+
+      <div id="bpProteinuriaPrompt" class="conditional-box hidden">
+        <strong>CKDの蛋白尿</strong>
+        <fieldset class="inline-fieldset">
+          <label class="choice"><input type="radio" name="proteinuriaPresent" value="true" /> あり</label>
+          <label class="choice"><input type="radio" name="proteinuriaPresent" value="false" /> なし</label>
+        </fieldset>
+        <p class="microcopy">目安：UPCR ≥0.15 g/gCr。糖尿病ではUACR ≥30 mg/gCrも蛋白尿ありとして扱います。</p>
+      </div>
+
+      <div id="bpPersistencePrompt" class="conditional-box hidden">
+        <strong>血圧高値の持続確認</strong>
+        <fieldset class="inline-fieldset">
+          <label class="choice"><input type="radio" name="bpPersistence" value="other_office" /> 健診・別日の診察室でも高値</label>
+          <label class="choice"><input type="radio" name="bpPersistence" value="home" /> 家庭血圧でも高値</label>
+          <label class="choice"><input type="radio" name="bpPersistence" value="not_confirmed" /> まだ確認していない</label>
+        </fieldset>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="section-heading"><div><span class="step">4</span><h2>SLD分類</h2></div></div>
       <div class="grid cols-2">
         <fieldset class="inline-fieldset">
           <legend>肝脂肪化</legend>
@@ -108,7 +160,7 @@
     </section>
 
     <section class="card">
-      <div class="section-heading"><div><span class="step">4</span><h2>肝線維化</h2></div></div>
+      <div class="section-heading"><div><span class="step">5</span><h2>肝線維化</h2></div></div>
       <div class="grid cols-3">
         <label>AST U/L<input id="ast" type="number" min="1" max="5000" inputmode="numeric" /></label>
         <label>ALT U/L<input id="alt" type="number" min="1" max="5000" inputmode="numeric" /></label>
@@ -137,7 +189,7 @@
     </section>
 
     <section class="card">
-      <div class="section-heading"><div><span class="step">5</span><h2>尿酸</h2></div></div>
+      <div class="section-heading"><div><span class="step">6</span><h2>尿酸</h2></div></div>
       <label>尿酸 mg/dL<input id="uricAcid" type="number" min="0" max="30" step="0.1" inputmode="decimal" placeholder="例 7.8" /></label>
       <label class="choice-card top-gap compact"><input id="urateTreatment" type="checkbox" /> 尿酸降下薬使用中</label>
 
@@ -163,7 +215,7 @@
             <label class="choice"><input type="radio" name="otherUrateComplication" value="true" /> あり</label>
             <label class="choice"><input type="radio" name="otherUrateComplication" value="false" /> なし</label>
           </fieldset>
-          <p class="microcopy">CKD/腎障害、高血圧、虚血性心疾患、メタボリックシンドローム。糖尿病と降圧薬使用中は上の入力を自動利用します。</p>
+          <p class="microcopy">高血圧、虚血性心疾患、メタボリックシンドローム。CKD、糖尿病、降圧薬使用中は上の入力を自動利用します。</p>
         </div>
       </div>
 
@@ -171,7 +223,7 @@
       <p class="microcopy">8 / 9 mg/dLは薬物療法を「考慮する」閾値であり、自動的な投薬適応ではありません。</p>
     </section>
 
-    <section class="card info-card"><h2>現在の実装範囲</h2><p>SLD分類、肝線維化評価、糖代謝評価、尿酸評価まで実装しています。血圧・脂質の治療Logicは後続Phaseで追加します。</p></section>
+    <section class="card info-card"><h2>現在の実装範囲</h2><p>SLD分類、肝線維化評価、糖代謝評価、尿酸評価に加え、血圧の分類・リスク判定と条件入力まで実装しています。血圧のaction summaryと脂質の治療Logicは後続Phaseで追加します。</p></section>
   </main>
   <script type="module" src="./app.js"></script>
 </body>
