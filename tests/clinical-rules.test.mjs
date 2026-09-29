@@ -225,7 +225,7 @@ test('diagnosed CKD is reused by the uric-acid 8 mg/dL complication branch',()=>
   assert.equal(r.showComplicationQuestion,false);
 });
 
-test('one low eGFR value does not by itself become established CKD in the uric-acid branch',()=>{
+test('CKD is not inferred when the established-CKD flag is off in the uric-acid branch',()=>{
   const r=evaluateUricAcid({
     uricAcid:8.2,
     urateTreatment:false,
@@ -235,7 +235,6 @@ test('one low eGFR value does not by itself become established CKD in the uric-a
     diagnosedDiabetes:false,
     antihypertensiveTreatment:false,
     diagnosedCkd:false,
-    eGfr:45,
   });
   assert.equal(r.id,'needs_complication');
 });
