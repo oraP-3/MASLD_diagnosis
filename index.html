@@ -154,18 +154,11 @@
 
       <div id="lipidSecondaryCombinedPrompt" class="conditional-box hidden">
         <strong>冠動脈疾患と脳梗塞の併存確認</strong>
-        <div class="grid cols-2">
-          <fieldset class="inline-fieldset">
-            <legend>冠動脈疾患</legend>
-            <label class="choice"><input type="radio" name="lipidCad" value="true" /> あり</label>
-            <label class="choice"><input type="radio" name="lipidCad" value="false" /> なし</label>
-          </fieldset>
-          <fieldset class="inline-fieldset">
-            <legend>アテローム血栓性脳梗塞／明らかなアテロームを伴う脳梗塞</legend>
-            <label class="choice"><input type="radio" name="lipidAtherothromboticStroke" value="true" /> あり</label>
-            <label class="choice"><input type="radio" name="lipidAtherothromboticStroke" value="false" /> なし</label>
-          </fieldset>
-        </div>
+        <fieldset class="inline-fieldset">
+          <legend>冠動脈疾患と、アテローム血栓性脳梗塞／明らかなアテロームを伴う脳梗塞を両方有する</legend>
+          <label class="choice"><input type="radio" name="lipidCombinedCadStroke" value="true" /> はい</label>
+          <label class="choice"><input type="radio" name="lipidCombinedCadStroke" value="false" /> いいえ</label>
+        </fieldset>
       </div>
 
       <div id="lipidPadPrompt" class="conditional-box hidden">
