@@ -350,7 +350,7 @@ test('C3 grade-III action overrides routine persistence and treatment context',(
   const treated=summarizeBloodPressure({...bpBase,sbp:182,dbp:112,antihypertensiveTreatment:true});
   assert.equal(untreated.actionTitle,'速やかな臨床評価が必要');
   assert.equal(treated.actionTitle,'速やかな臨床評価が必要');
-  assert.doesNotMatch(untreated.actionDetail,/家庭血圧.*待/);
+  assert.match(untreated.actionDetail,/確認待ちにはせず/);
 });
 
 test('C3 high risk from three routine factors names the concrete factors',()=>{
@@ -375,4 +375,41 @@ test('C3 normal BP does not expose JSH risk jargon or unnecessary action',()=>{
   assert.equal(r.category.id,'normal');
   assert.equal(r.actionTitle,'現時点では追加の降圧治療判定なし');
   assert.doesNotMatch(r.classificationDetail,/第2層|Category|layer/i);
+});
+
+
+test('C3 treated patients do not surface hidden untreated-risk missing data',()=>{
+  const r=summarizeBloodPressure({
+    ...bpBase,
+    sbp:135,
+    dbp:82,
+    antihypertensiveTreatment:true,
+    cvdHistory:null,
+    atrialFibrillation:null,
+    ldl:'',
+    hdl:'',
+    tg:'',
+  });
+  assert.equal(r.timingClass,'treated_above_target');
+  assert.deepEqual(r.missing,[]);
+  assert.match(r.classificationDetail,/降圧薬治療中/);
+  assert.doesNotMatch(r.classificationDetail,/リスク判定が変わる/);
+});
+
+test('C3 grade-II does not request risk-only missing data when action timing is unchanged',()=>{
+  const r=summarizeBloodPressure({
+    ...bpBase,
+    sbp:165,
+    dbp:92,
+    cvdHistory:null,
+    atrialFibrillation:null,
+    ldl:'',
+    hdl:'',
+    tg:'',
+    bpPersistence:'',
+  });
+  assert.equal(r.category.id,'grade2');
+  assert.deepEqual(r.missing,['血圧高値の持続確認']);
+  assert.doesNotMatch(r.classificationDetail,/LDL-C|脳・心血管疾患既往|心房細動/);
+  assert.match(r.classificationDetail,/対応タイミングは変わりません/);
 });
