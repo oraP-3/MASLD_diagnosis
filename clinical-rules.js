@@ -775,6 +775,7 @@ export function summarizeBloodPressure(input) {
 }
 
 
+// D1 evidence lock: JAS Guidelines for Prevention of Atherosclerotic Cardiovascular Diseases 2022 / current JAS risk chart.
 export const LIPID_HISAYAMA_THRESHOLDS = Object.freeze({
   ageMin: 40,
   ageMax: 79,
