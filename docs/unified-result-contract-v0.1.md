@@ -80,7 +80,8 @@ The current decision is possible, but another evaluation is clinically meaningfu
 Examples:
 - home / repeat office BP when persistence is not yet confirmed;
 - second-line fibrosis NIT after an intermediate/high FIB-4 or platelet signal;
-- gout history at UA >=9 mg/dL, where treatment consideration is already established but the clinical context/target can still change.
+- gout history at UA >=9 mg/dL, where treatment consideration is already established but the clinical context/target can still change;
+- urinary-stone history after the urate treatment branch is already established, because downstream stone-management context remains clinically meaningful.
 
 ## 4. Deduplication
 
