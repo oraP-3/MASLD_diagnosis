@@ -38,7 +38,7 @@ function resultClass(id) {
   if (['ald', 'high', 'specific_sld'].includes(id)) return 'bad';
   return 'neutral';
 }
-function setResultCard(el, label, title, detail, cls = 'neutral') { el.className = `result-card ${cls}`; el.innerHTML = `<p class="result-label">${label}</p><h3>${title}</h3><p>${detail}</p>`; }
+function setResultCard(el, label, title, detail, cls = 'neutral') { const detailHtml = detail ? `<p>${detail}</p>` : ''; el.className = `result-card ${cls}`; el.innerHTML = `<p class="result-label">${label}</p><h3>${title}</h3>${detailHtml}`; }
 
 function renderCmrf(cmrf) {
   $('cmrfBadges').innerHTML = Object.entries(cmrf.statuses).map(([key, status]) => {
@@ -66,7 +66,8 @@ function renderBloodPressure(input) {
 
   if (!r.category) {
     setResultCard($('bpCategoryResult'), '診察室血圧', '入力待ち', r.classificationDetail);
-    setResultCard($('bpActionResult'), '次の対応', r.actionTitle, r.actionDetail, r.actionTone);
+    $('bpActionResult').classList.add('hidden');
+    $('bpResultGrid').classList.add('single');
     return;
   }
 
@@ -76,7 +77,15 @@ function renderBloodPressure(input) {
       ? 'warn'
       : 'good';
   setResultCard($('bpCategoryResult'), '診察室血圧', r.category.label, r.classificationDetail, classificationTone);
-  setResultCard($('bpActionResult'), '次の対応', r.actionTitle, r.actionDetail, r.actionTone);
+
+  if (r.showAction) {
+    setResultCard($('bpActionResult'), '次の対応', r.actionTitle, r.actionDetail, r.actionTone);
+    $('bpActionResult').classList.remove('hidden');
+    $('bpResultGrid').classList.remove('single');
+  } else {
+    $('bpActionResult').classList.add('hidden');
+    $('bpResultGrid').classList.add('single');
+  }
 }
 
 function renderUricAcid(input) {
