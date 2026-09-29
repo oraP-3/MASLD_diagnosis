@@ -497,3 +497,15 @@ test('C4 unconfirmed low-risk grade-I keeps lifestyle, reassessment, and conditi
   assert.match(r.actionDetail,/薬物療法を検討/);
   assert.ok(r.actionDetail.length <= 40);
 });
+
+
+test('C4 grade-II medication guidance remains conditional on persistence',()=>{
+  const r=summarizeBloodPressure({...bpBase,sbp:165,dbp:100,bpPersistence:''});
+  assert.equal(r.timingClass,'prompt_confirmation');
+  assert.match(r.actionDetail,/持続なら薬物療法を検討/);
+});
+
+test('C4 treated above-target guidance retains tolerability review',()=>{
+  const r=summarizeBloodPressure({...bpBase,sbp:135,dbp:82,antihypertensiveTreatment:true});
+  assert.match(r.actionDetail,/忍容性/);
+});
