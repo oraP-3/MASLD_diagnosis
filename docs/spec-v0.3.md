@@ -59,12 +59,10 @@ If alcohol intake is unknown, the existing beverage / quantity calculator may be
 - LDL-C
 - HDL-C
 - triglycerides
-- eGFR
 - uric acid
 
 Conditional helpers:
 - height + weight -> BMI
-- creatinine -> eGFR
 - random glucose only when diabetes confirmation requires it
 
 ### Existing diagnosis / treatment
@@ -295,20 +293,17 @@ For CKD:
 
 CKD is a cross-domain input in this application, not a BP-only field.
 
-Shared baseline inputs:
-- eGFR: numeric current renal-function value
+Shared baseline input:
 - CKD diagnosed / established: yes / no
 
-Do not infer established CKD from one isolated eGFR value alone.
-
-CKD diagnosis requires chronicity: kidney damage and/or GFR <60 mL/min/1.73m² persisting for more than 3 months. eGFR >=60 does not exclude CKD when persistent kidney-damage markers are present.
+This application does **not** diagnose CKD from eGFR, proteinuria, or chronicity data. CKD diagnosis is treated as pre-existing clinician knowledge because de-novo CKD diagnosis is outside the scope of this MASLD treatment-support tool.
 
 Why this is shared:
 - BP: proteinuric CKD can alter JSH cardiovascular-risk stratification
 - lipids: CKD is a high-risk condition and will bypass the modified-Hisayama branch in Phase D
 - uric acid: CKD / renal impairment is a relevant complication in the UA 8.0–8.9 mg/dL treatment-consideration branch
 
-Do not make proteinuria a routine baseline input. Keep it conditional within the BP workflow when it can change the current JSH risk/timing branch.
+Do not collect numeric eGFR solely to reconstruct CKD diagnosis. Do not make proteinuria a routine baseline input. Keep proteinuria conditional within the BP workflow when it can change the current JSH risk/timing branch.
 
 ### Proteinuria — when it is decision-relevant
 
