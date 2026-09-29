@@ -102,7 +102,7 @@ test('diabetes makes elevated BP high risk and shortens reassessment after persi
   const r=evaluateBloodPressure({...bpBase,diagnosedDiabetes:true,bpPersistence:'other_office'});
   assert.equal(r.riskLevel,'high');
   assert.ok(r.highRiskReasons.includes('diabetes'));
-  assert.equal(r.timingClass,'short_interval_reassessment');
+  assert.equal(r.timingClass,'short_interval_reassessment_with_pharmacologic_consideration');
 });
 
 test('CVD and atrial fibrillation independently create high-risk BP branches',()=>{
@@ -238,4 +238,32 @@ test('one low eGFR value does not by itself become established CKD in the uric-a
     eGfr:45,
   });
   assert.equal(r.id,'needs_complication');
+});
+
+
+test('treated grade III BP still routes to urgent assessment',()=>{
+  const r=evaluateBloodPressure({...bpBase,sbp:182,dbp:112,antihypertensiveTreatment:true});
+  assert.equal(r.category.id,'grade3');
+  assert.equal(r.timingClass,'urgent_assessment');
+  assert.equal(r.showPersistenceQuestion,false);
+});
+
+test('known diabetes suppresses redundant CVD and AF prompt when elevated-BP risk is already high',()=>{
+  const r=evaluateBloodPressure({...bpBase,diagnosedDiabetes:true});
+  assert.equal(r.riskLevel,'high');
+  assert.equal(r.showRiskBackground,false);
+  assert.equal(r.showTgFastingQuestion,false);
+  assert.equal(r.showProteinuriaQuestion,false);
+});
+
+test('three known layer-2 factors suppress redundant CVD and AF prompt',()=>{
+  const r=evaluateBloodPressure({...bpBase,age:65,sex:'male',currentSmoking:true});
+  assert.equal(r.riskLevel,'high');
+  assert.equal(r.showRiskBackground,false);
+});
+
+test('confirmed high-risk elevated BP preserves both short-interval reassessment and drug consideration state',()=>{
+  const r=evaluateBloodPressure({...bpBase,diagnosedDiabetes:true,bpPersistence:'home'});
+  assert.equal(r.riskLevel,'high');
+  assert.equal(r.timingClass,'short_interval_reassessment_with_pharmacologic_consideration');
 });
