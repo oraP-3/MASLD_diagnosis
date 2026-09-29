@@ -569,6 +569,203 @@ export function evaluateBloodPressure(input) {
   };
 }
 
+
+function bpLayer2Labels(input, dyslipidemiaStatus) {
+  const labels = [];
+  const age = toNumber(input.age);
+  if (age !== null && age >= 65) labels.push('65歳以上');
+  if (input.sex === 'male') labels.push('男性');
+  if (dyslipidemiaStatus === true) labels.push('脂質異常症');
+  if (input.currentSmoking) labels.push('現在喫煙');
+  return labels;
+}
+
+function bpHighRiskLabels(input, result, layer2Labels) {
+  const labels = [];
+  if (result.highRiskReasons.includes('diabetes')) labels.push('糖尿病');
+  if (result.highRiskReasons.includes('cvd')) labels.push('脳・心血管疾患既往');
+  if (result.highRiskReasons.includes('atrial_fibrillation')) labels.push('心房細動');
+  if (result.highRiskReasons.includes('proteinuric_ckd')) labels.push('蛋白尿ありCKD');
+  if (result.highRiskReasons.includes('three_layer2_factors') && layer2Labels.length >= 3) {
+    labels.push(`${layer2Labels.join('・')}の組み合わせ`);
+  }
+  return labels;
+}
+
+function bpMissingLabels(input, result) {
+  const labels = [];
+  if (result.riskLevel === 'unresolved') {
+    if (toNumber(input.age) === null) labels.push('年齢');
+    if (input.sex !== 'male' && input.sex !== 'female') labels.push('性別');
+    if (result.showRiskBackground && (input.cvdHistory === null || input.cvdHistory === undefined)) labels.push('脳・心血管疾患既往');
+    if (result.showRiskBackground && (input.atrialFibrillation === null || input.atrialFibrillation === undefined)) labels.push('心房細動');
+    if (result.needsProteinuria) labels.push('蛋白尿');
+    if (result.needsTgFastingStatus) labels.push('TGの採血条件');
+    if (
+      result.dyslipidemiaStatus === null &&
+      !result.needsTgFastingStatus &&
+      !input.lipidTreatment
+    ) labels.push('LDL-C / HDL-C / TG');
+  }
+  if (result.showPersistenceQuestion && !input.bpPersistence) labels.push('血圧高値の持続確認');
+  return [...new Set(labels)];
+}
+
+export function summarizeBloodPressure(input) {
+  const result = evaluateBloodPressure(input);
+  if (!result.category) {
+    return {
+      ...result,
+      classificationDetail: '収縮期・拡張期血圧を入力してください。',
+      actionTitle: '入力待ち',
+      actionDetail: '血圧分類後に次の対応を表示します。',
+      actionTone: 'neutral',
+      missing: [],
+    };
+  }
+
+  const layer2Labels = bpLayer2Labels(input, result.dyslipidemiaStatus);
+  const highRiskLabels = bpHighRiskLabels(input, result, layer2Labels);
+  const missing = bpMissingLabels(input, result);
+
+  let classificationDetail = '現在の診察室血圧分類です。';
+  if (result.riskLevel === 'high') {
+    if (highRiskLabels.length) {
+      classificationDetail = `${highRiskLabels.join('、')}を伴うため高リスクです。`;
+    } else if (result.category.id === 'grade3') {
+      classificationDetail = 'III度高血圧域のため高リスクです。';
+    } else if (result.category.id === 'grade2' && layer2Labels.length) {
+      classificationDetail = `II度高血圧に${layer2Labels.join('、')}を伴うため高リスクです。`;
+    } else {
+      classificationDetail = '現在の血圧域と背景因子から高リスクです。';
+    }
+  } else if (result.riskLevel === 'moderate') {
+    if (result.category.id === 'grade2' && !layer2Labels.length) {
+      classificationDetail = 'II度高血圧域で、追加の高リスク背景は現時点で確認されていません。';
+    } else if (layer2Labels.length) {
+      classificationDetail = `${layer2Labels.join('、')}を伴うため中等リスクです。`;
+    } else {
+      classificationDetail = '現在の血圧域と背景因子から中等リスクです。';
+    }
+  } else if (result.riskLevel === 'low') {
+    classificationDetail = '治療タイミングを早める追加の高リスク背景は現時点で確認されていません。';
+  } else if (result.riskLevel === 'unresolved') {
+    classificationDetail = missing.length
+      ? `${missing.filter((item) => item !== '血圧高値の持続確認').join('、') || '追加情報'}の確認でリスク判定が変わる可能性があります。`
+      : '追加情報によりリスク判定が変わる可能性があります。';
+  } else {
+    classificationDetail = 'この血圧域では治療タイミング用の追加リスク層別化は行いません。';
+  }
+
+  const persistenceExplicitlyUnconfirmed = input.bpPersistence === 'not_confirmed';
+  const persistenceNotEntered = result.showPersistenceQuestion && !input.bpPersistence;
+  let actionTitle = '経過を確認';
+  let actionDetail = '';
+  let actionTone = 'neutral';
+
+  switch (result.timingClass) {
+    case 'urgent_assessment':
+      actionTitle = '速やかな臨床評価が必要';
+      actionDetail = 'III度高血圧域です。routineな家庭血圧待ちにはせず、症状を含め速やかに臨床評価します。';
+      actionTone = 'bad';
+      break;
+
+    case 'treated_within_target':
+      actionTitle = '降圧目標内';
+      actionDetail = '診察室血圧は一般的な目標 <130/80 mmHg の範囲です。現治療の継続・経過観察を検討します。';
+      actionTone = 'good';
+      break;
+
+    case 'treated_above_target':
+      actionTitle = result.category.id === 'grade2' ? '目標超過 — 早めに治療内容を再評価' : '目標超過 — 治療内容を再評価';
+      actionDetail = '服薬状況、忍容性、家庭血圧を確認し、必要に応じて治療強化を検討します。';
+      actionTone = result.category.id === 'grade2' ? 'bad' : 'warn';
+      break;
+
+    case 'prompt_confirmation_high_risk':
+      actionTitle = '高リスク背景あり — 速やかに持続確認';
+      actionDetail = '家庭血圧または別日の診察室血圧で持続を確認します。持続性高血圧が確認されれば、生活習慣改善とともに薬物療法を速やかに検討します。';
+      actionTone = 'bad';
+      break;
+
+    case 'prompt_confirmation':
+      actionTitle = '速やかに再確認・臨床評価';
+      actionDetail = '長期の生活習慣改善のみで経過観察せず、再測定や家庭血圧で持続を確認します。持続性高血圧が確認されれば薬物療法を速やかに検討します。';
+      actionTone = 'bad';
+      break;
+
+    case 'prompt_pharmacologic_consideration':
+      actionTitle = '薬物療法を速やかに検討';
+      actionDetail = '持続性高血圧が確認されています。生活習慣改善とともに薬物療法を速やかに検討します。';
+      actionTone = 'bad';
+      break;
+
+    case 'short_interval_reassessment_with_pharmacologic_consideration':
+      actionTitle = '生活習慣改善＋約1か月で再評価';
+      actionDetail = '高リスク背景を伴う持続性の高値血圧です。約1か月で再評価し、なお目標を上回る場合は薬物療法を考慮します。';
+      actionTone = 'warn';
+      break;
+
+    case 'short_interval_reassessment':
+      actionTitle = '生活習慣改善＋約1か月で再評価';
+      actionDetail = '持続性のI度高血圧です。約1か月以内に再評価し、目標未達が続く場合は薬物療法を開始・考慮します。';
+      actionTone = 'warn';
+      break;
+
+    case 'lifestyle_planned_reassessment':
+      actionTitle = '生活習慣改善＋計画的再評価';
+      actionDetail = '持続性の高値血圧ですが、現時点では自動的な即時薬物療法開始の分岐ではありません。生活習慣改善と計画的な再評価を行います。';
+      actionTone = 'warn';
+      break;
+
+    case 'needs_risk_resolution':
+      actionTitle = '追加情報で対応を確定';
+      actionDetail = missing.length
+        ? `${missing.join('、')}を確認すると、再評価時期や薬物療法を考慮するタイミングを確定できます。`
+        : '追加のリスク情報を確認すると対応を確定できます。';
+      actionTone = 'warn';
+      break;
+
+    case 'needs_confirmation':
+      if (persistenceNotEntered) {
+        actionTitle = '血圧高値の持続状況を確認';
+        actionDetail = result.category.id === 'grade1'
+          ? '家庭血圧または別日の診察室血圧で持続を確認します。生活習慣改善を行い、持続する場合は約1か月で再評価し薬物療法を検討します。'
+          : '家庭血圧または別日の診察室血圧で持続を確認し、生活習慣改善とその後の再評価につなげます。';
+      } else if (persistenceExplicitlyUnconfirmed) {
+        actionTitle = '血圧高値の持続確認を優先';
+        actionDetail = result.category.id === 'grade1'
+          ? '現時点では持続性高血圧は未確認です。家庭血圧または別日の診察室血圧で確認し、持続する場合は約1か月で再評価し薬物療法を検討します。'
+          : '現時点では持続性高値血圧は未確認です。家庭血圧または別日の診察室血圧で確認します。';
+      } else {
+        actionTitle = '血圧高値の持続確認を優先';
+        actionDetail = '家庭血圧または別日の診察室血圧で持続を確認します。';
+      }
+      if (missing.some((item) => item !== '血圧高値の持続確認')) {
+        const riskMissing = missing.filter((item) => item !== '血圧高値の持続確認');
+        actionDetail += ` あわせて${riskMissing.join('、')}を確認するとリスク判定が確定します。`;
+      }
+      actionTone = 'warn';
+      break;
+
+    case 'no_hypertension_action':
+    default:
+      actionTitle = '現時点では追加の降圧治療判定なし';
+      actionDetail = '現在の診察室血圧分類では、追加の治療タイミング分岐には入りません。';
+      actionTone = 'good';
+      break;
+  }
+
+  return {
+    ...result,
+    classificationDetail,
+    actionTitle,
+    actionDetail,
+    actionTone,
+    missing,
+  };
+}
+
 export function evaluateUricAcid(input) {
   const ua = toNumber(input.uricAcid);
   const treated = Boolean(input.urateTreatment);
