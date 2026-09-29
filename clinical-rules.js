@@ -738,15 +738,27 @@ export function summarizeBloodPressure(input) {
 
     case 'needs_confirmation':
       if (persistenceNotEntered) {
-        actionTitle = '血圧高値の持続状況を確認';
-        actionDetail = result.category.id === 'grade1'
-          ? '家庭血圧または別日の診察室血圧で持続を確認します。生活習慣改善を行い、持続する場合は約1か月で再評価し薬物療法を検討します。'
-          : '家庭血圧または別日の診察室血圧で持続を確認し、生活習慣改善とその後の再評価につなげます。';
+        actionTitle = result.riskLevel === 'high'
+          ? '高リスク背景あり — 血圧高値の持続状況を確認'
+          : '血圧高値の持続状況を確認';
+        if (result.category.id === 'grade1') {
+          actionDetail = '家庭血圧または別日の診察室血圧で持続を確認します。生活習慣改善を行い、持続する場合は約1か月で再評価し薬物療法を検討します。';
+        } else if (result.riskLevel === 'high') {
+          actionDetail = '家庭血圧または別日の診察室血圧で持続を確認し、生活習慣改善を行います。高値が持続する場合は約1か月で再評価し、なお目標を上回る場合は薬物療法を考慮します。';
+        } else {
+          actionDetail = '家庭血圧または別日の診察室血圧で持続を確認し、生活習慣改善とその後の再評価につなげます。';
+        }
       } else if (persistenceExplicitlyUnconfirmed) {
-        actionTitle = '血圧高値の持続確認を優先';
-        actionDetail = result.category.id === 'grade1'
-          ? '現時点では持続性高血圧は未確認です。家庭血圧または別日の診察室血圧で確認し、持続する場合は約1か月で再評価し薬物療法を検討します。'
-          : '現時点では持続性高値血圧は未確認です。家庭血圧または別日の診察室血圧で確認します。';
+        actionTitle = result.riskLevel === 'high'
+          ? '高リスク背景あり — 持続確認を優先'
+          : '血圧高値の持続確認を優先';
+        if (result.category.id === 'grade1') {
+          actionDetail = '現時点では持続性高血圧は未確認です。家庭血圧または別日の診察室血圧で確認し、持続する場合は約1か月で再評価し薬物療法を検討します。';
+        } else if (result.riskLevel === 'high') {
+          actionDetail = '現時点では持続性高値血圧は未確認です。家庭血圧または別日の診察室血圧で確認し、高値が持続する場合は約1か月で再評価し、なお目標を上回る場合は薬物療法を考慮します。';
+        } else {
+          actionDetail = '現時点では持続性高値血圧は未確認です。家庭血圧または別日の診察室血圧で確認します。';
+        }
       } else {
         actionTitle = '血圧高値の持続確認を優先';
         actionDetail = '家庭血圧または別日の診察室血圧で持続を確認します。';
