@@ -415,7 +415,9 @@ export function evaluateBloodPressure(input) {
       showRiskBackground: false,
       showPersistenceQuestion: false,
       persistenceConfirmed: false,
+      showProteinuriaQuestion: false,
       needsProteinuria: false,
+      showTgFastingQuestion: false,
       needsTgFastingStatus: false,
       timingClass: 'pending',
     };
@@ -451,21 +453,39 @@ export function evaluateBloodPressure(input) {
 
   const riskWithoutProtein = possibleBpRiskLevels(input, category.id, { proteinuriaPresent: false });
   const riskWithProtein = possibleBpRiskLevels(input, category.id, { proteinuriaPresent: true });
-  const needsProteinuria =
+  const otherHighRiskEstablished =
+    Boolean(input.diagnosedDiabetes) ||
+    input.cvdHistory === true ||
+    input.atrialFibrillation === true ||
+    knownLayer2Count >= 3;
+  const showProteinuriaQuestion =
     !treated &&
     ['elevated', 'grade1'].includes(category.id) &&
     Boolean(input.diagnosedCkd) &&
-    (input.proteinuriaPresent === null || input.proteinuriaPresent === undefined) &&
     riskBackgroundResolved &&
-    highRiskReasons.length === 0 &&
+    !otherHighRiskEstablished &&
     !sameStringArray(riskWithoutProtein, riskWithProtein);
+  const needsProteinuria =
+    showProteinuriaQuestion &&
+    (input.proteinuriaPresent === null || input.proteinuriaPresent === undefined);
 
-  let needsTgFastingStatus = false;
+  const ldl = toNumber(input.ldl);
+  const hdl = toNumber(input.hdl);
+  const tg = toNumber(input.tg);
+  const tgBorderlineCanResolveDyslipidemia =
+    !input.lipidTreatment &&
+    ldl !== null && ldl < BP_THRESHOLDS.dyslipidemia.ldl &&
+    hdl !== null && hdl >= BP_THRESHOLDS.dyslipidemia.hdl &&
+    tg !== null &&
+    tg >= BP_THRESHOLDS.dyslipidemia.tgFasting &&
+    tg < BP_THRESHOLDS.dyslipidemia.tgNonfasting;
+
+  let showTgFastingQuestion = false;
   if (
     !treated &&
     riskApplicable &&
     category.id !== 'grade3' &&
-    dys.needsFastingStatusCandidate &&
+    tgBorderlineCanResolveDyslipidemia &&
     riskBackgroundResolved
   ) {
     const riskIfNonfasting = possibleBpRiskLevels(
@@ -478,8 +498,9 @@ export function evaluateBloodPressure(input) {
       category.id,
       { dyslipidemia: true }
     );
-    needsTgFastingStatus = !sameStringArray(riskIfNonfasting, riskIfFasting);
+    showTgFastingQuestion = !sameStringArray(riskIfNonfasting, riskIfFasting);
   }
+  const needsTgFastingStatus = showTgFastingQuestion && !input.tgFastingStatus;
 
   const persistence = input.bpPersistence || '';
   const persistenceConfirmed = persistence === 'other_office' || persistence === 'home';
@@ -527,7 +548,9 @@ export function evaluateBloodPressure(input) {
     showRiskBackground,
     showPersistenceQuestion,
     persistenceConfirmed,
+    showProteinuriaQuestion,
     needsProteinuria,
+    showTgFastingQuestion,
     needsTgFastingStatus,
     timingClass,
   };
