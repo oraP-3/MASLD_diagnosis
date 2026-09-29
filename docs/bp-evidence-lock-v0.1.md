@@ -64,6 +64,26 @@ Already-treated patients do not need a persistence question.
 - dyslipidemia
 - current smoking
 
+### Operational dyslipidemia definition
+
+JSH2025 Table 6-1 identifies dyslipidemia using:
+- LDL-C >=140 mg/dL
+- HDL-C <40 mg/dL
+- TG >=150 mg/dL, with fasting / postprandial handling noted in the table footnote
+
+For this application, align the TG handling with the current Japanese Atherosclerosis Society diagnostic thresholds:
+- fasting TG >=150 mg/dL
+- nonfasting TG >=175 mg/dL
+
+Operational rule for C2:
+- active lipid-lowering treatment counts as dyslipidemia present so treated values do not erase the known condition
+- otherwise any positive LDL-C / HDL-C / TG threshold counts as dyslipidemia present
+- LDL-C is a shared baseline lab because it is also required by the future lipid engine
+- fasting status is not a routine baseline field
+- if TG 150–174 mg/dL is the only possible dyslipidemia criterion and fasting status is unknown, return dyslipidemia as unresolved only when that uncertainty can change the JSH risk tier
+
+Do not make C2 wait for the complete Phase D lipid engine merely to establish the JSH layer-2 factor.
+
 ### High-risk / layer-3 triggers
 
 Any of:
