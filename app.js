@@ -1,4 +1,4 @@
-import { calculateBmi, deriveCmrf, evaluateGlycemia, summarizeBloodPressure, evaluateUricAcid, classifySld, calculateFib4, evaluateFib4, evaluatePlatelets, shouldShowNit, interpretNit } from './clinical-rules.js';
+import { calculateBmi, deriveCmrf, evaluateGlycemia, summarizeBloodPressure, summarizeLipids, evaluateUricAcid, classifySld, calculateFib4, evaluateFib4, evaluatePlatelets, shouldShowNit, interpretNit } from './clinical-rules.js';
 
 const DRINKS = [
   { id: 'beer', label: 'ビール・発泡酒 5%', unit: 'mL', gramsPerUnit: 0.04, step: 50, placeholder: '例 500' },
@@ -17,12 +17,21 @@ const radioValue = (name) => document.querySelector(`input[name="${name}"]:check
 function boolRadio(name) { const v = radioValue(name); return v === 'true' ? true : v === 'false' ? false : null; }
 
 function currentInput() {
+  const familialLipidStatus = radioValue('familialLipidStatus');
   return {
     age: value('age'), sex: radioValue('sex'), bmi: value('bmi'), waist: value('waist'), sbp: value('sbp'), dbp: value('dbp'),
     ldl: value('ldl'), hba1c: value('hba1c'), fastingGlucose: value('fastingGlucose'), randomGlucose: value('randomGlucose'),
     separateDayDiabeticTypeConfirmed: checked('separateDayDiabeticTypeConfirmed'), tg: value('tg'), hdl: value('hdl'),
     antihypertensiveTreatment: checked('antihypertensiveTreatment'), diagnosedDiabetes: checked('diagnosedDiabetes'),
     diagnosedCkd: checked('diagnosedCkd'), lipidTreatment: checked('lipidTreatment'), currentSmoking: checked('currentSmoking'),
+    knownFh: familialLipidStatus ? familialLipidStatus === 'fh' : null,
+    familialTypeIII: familialLipidStatus ? familialLipidStatus === 'type3' : null,
+    qualifyingSecondaryPrevention: boolRadio('lipidSecondaryPrevention'),
+    pad: boolRadio('lipidPad'),
+    diabeticMicrovascularDisease: boolRadio('lipidDiabeticMicrovascularDisease'),
+    acuteCoronarySyndrome: boolRadio('lipidAcs'),
+    coronaryArteryDisease: boolRadio('lipidCad'),
+    atherothromboticCerebralInfarction: boolRadio('lipidAtherothromboticStroke'),
     cvdHistory: boolRadio('cvdHistory'), atrialFibrillation: boolRadio('atrialFibrillation'),
     proteinuriaPresent: boolRadio('proteinuriaPresent'), tgFastingStatus: radioValue('tgFastingStatus'), bpPersistence: radioValue('bpPersistence'),
     steatosis: boolRadio('steatosis'), alcoholGWeek: value('alcoholGWeek'), otherCause: checked('otherCause'),
@@ -88,6 +97,18 @@ function renderBloodPressure(input) {
   }
 }
 
+function renderLipids(input) {
+  const r = summarizeLipids(input);
+  $('lipidSecondaryPrompt').classList.toggle('hidden', !r.showSecondaryQuestion);
+  $('lipidSecondarySubtypePrompt').classList.toggle('hidden', !r.showSecondarySubtypeQuestion);
+  $('lipidSecondaryCombinedPrompt').classList.toggle('hidden', !r.showSecondaryCombinedQuestion);
+  $('lipidPadPrompt').classList.toggle('hidden', !r.showPadQuestion);
+  $('lipidMicrovascularPrompt').classList.toggle('hidden', !r.showDiabeticMicrovascularQuestion);
+
+  setResultCard($('lipidLdlResult'), 'LDL-C', r.title, r.detail, r.tone);
+  setResultCard($('lipidTgResult'), 'TG / HDL-C', r.tgTitle, r.tgDetail, r.tgTone);
+}
+
 function renderUricAcid(input) {
   const r = evaluateUricAcid(input);
   $('urateContext').classList.toggle('hidden', !r.showContextQuestions);
@@ -121,7 +142,7 @@ function renderNit() {
     : '<p class="microcopy">利用可能なNITがあれば入力してください。未入力の検査を不足データとしては扱いません。</p>';
 }
 
-function renderAll() { const input = currentInput(); const cmrf = deriveCmrf(input); renderCmrf(cmrf); renderGlycemia(input); renderBloodPressure(input); renderSld(input, cmrf); renderFibrosis(input); renderUricAcid(input); }
+function renderAll() { const input = currentInput(); const cmrf = deriveCmrf(input); renderCmrf(cmrf); renderGlycemia(input); renderBloodPressure(input); renderLipids(input); renderSld(input, cmrf); renderFibrosis(input); renderUricAcid(input); }
 
 function setupDrinkHelper() {
   $('drinkRows').innerHTML = DRINKS.map(({ id, label, unit, gramsPerUnit, step, placeholder }) => `
