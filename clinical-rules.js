@@ -733,7 +733,7 @@ export function summarizeBloodPressure(input) {
         if (result.category.id === 'grade1') {
           actionDetail = '家庭/別日血圧で持続確認。持続時は約1か月で再評価。';
         } else if (result.riskLevel === 'high') {
-          actionDetail = '家庭/別日血圧で持続確認。持続時は約1か月で再評価・薬物療法考慮。';
+          actionDetail = '家庭/別日血圧で持続確認。持続時は約1か月で再評価・薬物療法を考慮。';
         } else {
           actionDetail = '家庭/別日血圧で持続確認。持続時は生活習慣改善・再評価。';
         }
