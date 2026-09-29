@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { calculateBmi, deriveCmrf, evaluateGlycemia, classifyOfficeBp, evaluateBpDyslipidemia, evaluateBloodPressure, evaluateUricAcid, classifySld, calculateFib4, evaluateFib4, evaluatePlatelets, shouldShowNit, interpretNit } from '../clinical-rules.js';
+import { calculateBmi, deriveCmrf, evaluateGlycemia, classifyOfficeBp, evaluateBpDyslipidemia, evaluateBloodPressure, summarizeBloodPressure, evaluateUricAcid, classifySld, calculateFib4, evaluateFib4, evaluatePlatelets, shouldShowNit, interpretNit } from '../clinical-rules.js';
 
 test('BMI helper rounds to one decimal place',()=>assert.equal(calculateBmi(182,88),26.6));
 test('CMRF is derived from numeric inputs without manual checkboxes',()=>{const c=deriveCmrf({sex:'male',bmi:22.5,waist:90,hba1c:5.8,sbp:125,dbp:78,tg:120,hdl:55,diagnosedDiabetes:false,antihypertensiveTreatment:false,lipidTreatment:false});assert.equal(c.statuses.glucose,true);assert.equal(c.count,1)});
@@ -301,4 +301,139 @@ test('CVD and AF stay hidden when diabetes is already known high risk and they w
   });
   assert.equal(r.riskLevel,'high');
   assert.equal(r.showRiskBackground,false);
+});
+
+
+test('C3 explains a diabetes-driven high-risk elevated-BP result without JSH layer jargon',()=>{
+  const r=summarizeBloodPressure({...bpBase,diagnosedDiabetes:true,bpPersistence:'home',cvdHistory:null,atrialFibrillation:null});
+  assert.equal(r.riskLevel,'high');
+  assert.match(r.classificationDetail,/糖尿病/);
+  assert.doesNotMatch(r.classificationDetail,/第2層|Category|layer/i);
+  assert.equal(r.actionTitle,'生活習慣改善＋約1か月で再評価');
+  assert.match(r.actionDetail,/薬物療法を考慮/);
+});
+
+test('C3 persistence choice visibly changes elevated-BP action wording',()=>{
+  const waiting=summarizeBloodPressure({...bpBase,bpPersistence:'',cvdHistory:false,atrialFibrillation:false});
+  const unconfirmed=summarizeBloodPressure({...bpBase,bpPersistence:'not_confirmed',cvdHistory:false,atrialFibrillation:false});
+  const confirmed=summarizeBloodPressure({...bpBase,bpPersistence:'home',cvdHistory:false,atrialFibrillation:false});
+  assert.equal(waiting.actionTitle,'血圧高値の持続状況を確認');
+  assert.equal(unconfirmed.actionTitle,'血圧高値の持続確認を優先');
+  assert.equal(confirmed.actionTitle,'生活習慣改善＋計画的再評価');
+});
+
+test('C3 grade-I high risk requires prompt confirmation before drug-start wording',()=>{
+  const before=summarizeBloodPressure({...bpBase,sbp:145,dbp:92,diagnosedDiabetes:true,bpPersistence:'',cvdHistory:null,atrialFibrillation:null});
+  const after=summarizeBloodPressure({...bpBase,sbp:145,dbp:92,diagnosedDiabetes:true,bpPersistence:'home',cvdHistory:null,atrialFibrillation:null});
+  assert.match(before.actionTitle,/速やかに持続確認/);
+  assert.match(before.actionDetail,/確認されれば/);
+  assert.equal(after.actionTitle,'薬物療法を速やかに検討');
+});
+
+test('C3 treated BP uses target and intensification language rather than treatment initiation',()=>{
+  const within=summarizeBloodPressure({...bpBase,sbp:125,dbp:78,antihypertensiveTreatment:true});
+  const above=summarizeBloodPressure({...bpBase,sbp:135,dbp:82,antihypertensiveTreatment:true});
+  assert.equal(within.actionTitle,'降圧目標内');
+  assert.match(within.actionDetail,/<130\/80/);
+  assert.match(above.actionTitle,/治療内容を再評価/);
+  assert.match(above.actionDetail,/治療強化/);
+  assert.doesNotMatch(above.actionDetail,/治療を開始/);
+});
+
+test('C3 treated grade-II above-target BP gets more prompt review wording',()=>{
+  const r=summarizeBloodPressure({...bpBase,sbp:165,dbp:92,antihypertensiveTreatment:true});
+  assert.match(r.actionTitle,/早めに/);
+});
+
+test('C3 grade-III action overrides routine persistence and treatment context',()=>{
+  const untreated=summarizeBloodPressure({...bpBase,sbp:182,dbp:112});
+  const treated=summarizeBloodPressure({...bpBase,sbp:182,dbp:112,antihypertensiveTreatment:true});
+  assert.equal(untreated.actionTitle,'速やかな臨床評価が必要');
+  assert.equal(treated.actionTitle,'速やかな臨床評価が必要');
+  assert.match(untreated.actionDetail,/確認待ちにはせず/);
+});
+
+test('C3 high risk from three routine factors names the concrete factors',()=>{
+  const r=summarizeBloodPressure({...bpBase,age:65,sex:'male',currentSmoking:true,bpPersistence:'home',cvdHistory:null,atrialFibrillation:null});
+  assert.equal(r.riskLevel,'high');
+  assert.match(r.classificationDetail,/65歳以上/);
+  assert.match(r.classificationDetail,/男性/);
+  assert.match(r.classificationDetail,/現在喫煙/);
+  assert.doesNotMatch(r.classificationDetail,/第2層/);
+});
+
+test('C3 unresolved risk names decision-relevant missing information',()=>{
+  const r=summarizeBloodPressure({...bpBase,diagnosedCkd:true,cvdHistory:false,atrialFibrillation:false,proteinuriaPresent:null,bpPersistence:'home'});
+  assert.equal(r.riskLevel,'unresolved');
+  assert.ok(r.missing.includes('蛋白尿'));
+  assert.match(r.classificationDetail,/蛋白尿/);
+  assert.equal(r.actionTitle,'追加情報で対応を確定');
+});
+
+test('C3 normal BP does not expose JSH risk jargon or unnecessary action',()=>{
+  const r=summarizeBloodPressure({...bpBase,sbp:118,dbp:76});
+  assert.equal(r.category.id,'normal');
+  assert.equal(r.actionTitle,'現時点では追加の降圧治療判定なし');
+  assert.doesNotMatch(r.classificationDetail,/第2層|Category|layer/i);
+});
+
+
+test('C3 treated patients do not surface hidden untreated-risk missing data',()=>{
+  const r=summarizeBloodPressure({
+    ...bpBase,
+    sbp:135,
+    dbp:82,
+    antihypertensiveTreatment:true,
+    cvdHistory:null,
+    atrialFibrillation:null,
+    ldl:'',
+    hdl:'',
+    tg:'',
+  });
+  assert.equal(r.timingClass,'treated_above_target');
+  assert.deepEqual(r.missing,[]);
+  assert.match(r.classificationDetail,/降圧薬治療中/);
+  assert.doesNotMatch(r.classificationDetail,/リスク判定が変わる/);
+});
+
+test('C3 grade-II does not request risk-only missing data when action timing is unchanged',()=>{
+  const r=summarizeBloodPressure({
+    ...bpBase,
+    sbp:165,
+    dbp:92,
+    cvdHistory:null,
+    atrialFibrillation:null,
+    ldl:'',
+    hdl:'',
+    tg:'',
+    bpPersistence:'',
+  });
+  assert.equal(r.category.id,'grade2');
+  assert.deepEqual(r.missing,['血圧高値の持続確認']);
+  assert.doesNotMatch(r.classificationDetail,/LDL-C|脳・心血管疾患既往|心房細動/);
+  assert.match(r.classificationDetail,/対応タイミングは変わりません/);
+});
+
+
+test('C3 unconfirmed high-risk elevated BP retains one-month reassessment and drug-consideration guidance',()=>{
+  const notEntered=summarizeBloodPressure({
+    ...bpBase,
+    diagnosedDiabetes:true,
+    bpPersistence:'',
+    cvdHistory:null,
+    atrialFibrillation:null,
+  });
+  const explicitlyUnconfirmed=summarizeBloodPressure({
+    ...bpBase,
+    diagnosedDiabetes:true,
+    bpPersistence:'not_confirmed',
+    cvdHistory:null,
+    atrialFibrillation:null,
+  });
+  assert.match(notEntered.actionTitle,/高リスク背景あり/);
+  assert.match(notEntered.actionDetail,/約1か月/);
+  assert.match(notEntered.actionDetail,/薬物療法を考慮/);
+  assert.match(explicitlyUnconfirmed.actionTitle,/高リスク背景あり/);
+  assert.match(explicitlyUnconfirmed.actionDetail,/約1か月/);
+  assert.match(explicitlyUnconfirmed.actionDetail,/薬物療法を考慮/);
 });

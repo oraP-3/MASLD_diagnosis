@@ -1,4 +1,4 @@
-import { calculateBmi, deriveCmrf, evaluateGlycemia, evaluateBloodPressure, evaluateUricAcid, classifySld, calculateFib4, evaluateFib4, evaluatePlatelets, shouldShowNit, interpretNit } from './clinical-rules.js';
+import { calculateBmi, deriveCmrf, evaluateGlycemia, summarizeBloodPressure, evaluateUricAcid, classifySld, calculateFib4, evaluateFib4, evaluatePlatelets, shouldShowNit, interpretNit } from './clinical-rules.js';
 
 const DRINKS = [
   { id: 'beer', label: 'ビール・発泡酒 5%', unit: 'mL', gramsPerUnit: 0.04, step: 50, placeholder: '例 500' },
@@ -58,25 +58,25 @@ function renderGlycemia(input) {
 }
 
 function renderBloodPressure(input) {
-  const r = evaluateBloodPressure(input);
+  const r = summarizeBloodPressure(input);
   $('bpRiskBackgroundPrompt').classList.toggle('hidden', !r.showRiskBackground);
   $('bpTgFastingPrompt').classList.toggle('hidden', !r.showTgFastingQuestion);
   $('bpProteinuriaPrompt').classList.toggle('hidden', !r.showProteinuriaQuestion);
   $('bpPersistencePrompt').classList.toggle('hidden', !r.showPersistenceQuestion);
 
   if (!r.category) {
-    setResultCard($('bpCategoryResult'), '診察室血圧', '入力待ち', '収縮期・拡張期血圧を入力してください。');
+    setResultCard($('bpCategoryResult'), '診察室血圧', '入力待ち', r.classificationDetail);
+    setResultCard($('bpActionResult'), '次の対応', r.actionTitle, r.actionDetail, r.actionTone);
     return;
   }
 
-  let detail = '現在の診察室血圧分類です。';
-  if (r.riskLevel === 'high') detail = 'JSH2025の内部リスク判定：高リスク。';
-  else if (r.riskLevel === 'moderate') detail = 'JSH2025の内部リスク判定：中等リスク。';
-  else if (r.riskLevel === 'low') detail = 'JSH2025の内部リスク判定：低リスク。';
-  else if (r.riskLevel === 'unresolved' && r.possibleRisks.length) detail = '追加情報によりJSH2025の内部リスク判定が変わる可能性があります。';
-
-  const tone = r.category.id === 'grade3' ? 'bad' : ['elevated', 'grade1', 'grade2'].includes(r.category.id) ? 'warn' : 'good';
-  setResultCard($('bpCategoryResult'), '診察室血圧', r.category.label, detail, tone);
+  const classificationTone = r.category.id === 'grade3'
+    ? 'bad'
+    : ['elevated', 'grade1', 'grade2'].includes(r.category.id)
+      ? 'warn'
+      : 'good';
+  setResultCard($('bpCategoryResult'), '診察室血圧', r.category.label, r.classificationDetail, classificationTone);
+  setResultCard($('bpActionResult'), '次の対応', r.actionTitle, r.actionDetail, r.actionTone);
 }
 
 function renderUricAcid(input) {
