@@ -679,7 +679,7 @@ export function summarizeBloodPressure(input) {
 
     case 'treated_above_target':
       actionTitle = result.category.id === 'grade2' ? '目標超過 — 早めに治療内容を再評価' : '目標超過 — 治療内容を再評価';
-      actionDetail = '服薬・家庭血圧を確認し、必要なら治療強化を検討。';
+      actionDetail = '服薬・忍容性・家庭血圧を確認し、必要なら治療強化を検討。';
       actionTone = result.category.id === 'grade2' ? 'bad' : 'warn';
       break;
 
@@ -691,7 +691,7 @@ export function summarizeBloodPressure(input) {
 
     case 'prompt_confirmation':
       actionTitle = '速やかに再確認・臨床評価';
-      actionDetail = '再測定・家庭血圧で速やかに持続確認。確認後は薬物療法を検討。';
+      actionDetail = '再測定・家庭血圧で速やかに持続確認。持続なら薬物療法を検討。';
       actionTone = 'bad';
       break;
 
