@@ -507,15 +507,16 @@ function buildUricAcidDomain(input) {
     suggestions.push(missingItem('gout', MISSING_DATA_CLASS.nextEvaluation, 'uric_acid', '薬物療法考慮は既に成立するが、痛風歴で治療文脈と目標が変わるため'));
   }
 
+  const urateDecisionEstablished =
+    !['pending', 'treated_needs_ua', 'needs_gout', 'needs_complication'].includes(result.id);
   if (
     ua !== null &&
     ua > 7 &&
-    ua < 8 &&
     !input.urateTreatment &&
-    input.goutPresent === false &&
+    urateDecisionEstablished &&
     (input.urinaryStone === null || input.urinaryStone === undefined)
   ) {
-    suggestions.push(missingItem('urinary_stone', MISSING_DATA_CLASS.nextEvaluation, 'uric_acid', '尿酸降下療法の閾値は変えないが、結石管理の文脈に意味があるため'));
+    suggestions.push(missingItem('urinary_stone', MISSING_DATA_CLASS.nextEvaluation, 'uric_acid', '現在の治療分岐は変えないが、結石管理の文脈に意味があるため'));
   }
 
   let nextAction = null;
