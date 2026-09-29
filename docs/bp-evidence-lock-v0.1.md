@@ -51,7 +51,11 @@ When not confirmed:
 - suggest home BP or repeat office BP
 - preserve a needs-confirmation state when persistence materially changes the management branch
 
-Do not use this rule to delay urgent assessment for markedly elevated or symptomatic BP.
+Operational precedence:
+- untreated elevated BP / grade I: persistence confirmation gates medication-start wording
+- grade I high risk: high-risk status can be shown immediately, but medication-start wording waits for prompt confirmation of persistent hypertension
+- grade II: prompt repeat / confirmation and clinical assessment; do not use a prolonged observation branch
+- grade III or symptomatic / urgent presentation: urgent clinical assessment supersedes the routine persistence-confirmation workflow
 
 Already-treated patients do not need a persistence question.
 
@@ -106,7 +110,7 @@ User-facing output should name the actual reason, e.g. `糖尿病を伴うため
 
 ## Treatment / reassessment timing lock
 
-### Elevated BP 130–139 / 80–89
+### Untreated: elevated BP 130–139 / 80–89
 
 Low / moderate risk:
 - lifestyle modification
@@ -115,23 +119,46 @@ Low / moderate risk:
 
 High risk:
 - lifestyle modification
-- reassess on a short interval, approximately 1 month
-- if still above target, pharmacologic treatment may be considered
+- short-interval reassessment, approximately 1 month
+- if persistent elevation is confirmed, pharmacologic treatment may be considered
 
-### Grade I hypertension
+### Untreated: grade I hypertension
 
 Low / moderate risk:
+- confirm persistence if not already established
 - lifestyle modification
 - reassess within approximately 1 month
-- if still above target, pharmacologic treatment should be started / considered
+- if persistent, pharmacologic treatment should be started / considered
 
 High risk:
-- lifestyle modification and prompt pharmacologic treatment
+- show the high-risk context immediately
+- if persistence is not established, obtain prompt repeat / home / another-day confirmation
+- once persistent hypertension is confirmed, lifestyle modification and prompt pharmacologic treatment
 
-### Grade II / III hypertension
+### Untreated: grade II hypertension
 
-- lifestyle modification and prompt pharmacologic treatment
-- do not create a prolonged lifestyle-only waiting branch
+- prompt repeat / confirmation and clinical assessment
+- no prolonged lifestyle-only waiting branch
+- once persistent hypertension is confirmed, lifestyle modification and prompt pharmacologic treatment
+
+### Grade III hypertension / urgent presentation
+
+- urgent clinical assessment
+- do not delay through a routine home-BP / another-day confirmation workflow
+
+### Already treated
+
+Persistence is already established by treatment context; do not ask a persistence question and do not use `start treatment` wording.
+
+- office BP <130/80:
+  - within the default office target
+  - continue current treatment / monitoring as clinically appropriate
+
+- office BP >=130/80:
+  - above the default office target
+  - review current regimen, adherence, tolerability, and available home BP
+  - consider treatment intensification as clinically appropriate
+  - more severe values warrant more prompt reassessment
 
 These are clinician-support outputs, not autonomous prescribing commands.
 
@@ -198,6 +225,11 @@ Most useful cases:
 
 Do not ask it solely for grade II / III treatment timing, because the prompt-treatment branch is already determined.
 
+When unknown proteinuria would change only the internal risk label (for example grade II moderate vs high risk) but not the current treatment-timing branch:
+- keep risk unresolved / bounded rather than forcing an exact label
+- do not ask an extra question solely for internal-label precision
+- do not display a falsely precise risk tier
+
 Operational positive threshold:
 - spot urine protein / creatinine ratio >=0.15 g/gCr
 
@@ -221,10 +253,11 @@ For markedly elevated BP, do not let the confirmation prompt imply that the clin
 
 C2 may implement:
 - BP category
-- risk level / high-risk reasons
+- risk level / high-risk reasons when determinable
+- an explicit unresolved / bounded risk state when missing data cannot change the current action branch
 - persistence-needed state
 - proteinuria-needed state
-- treatment-timing class
+- treatment-timing class, including treated-patient above-target / intensification context
 - target context
 
 C2 should **not**:
