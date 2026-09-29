@@ -71,6 +71,7 @@ Conditional helpers:
 Compact initial flags:
 - taking antihypertensive medication
 - diagnosed diabetes
+- CKD diagnosed / established
 - taking lipid-lowering medication
 - taking urate-lowering medication
 
@@ -79,7 +80,6 @@ Compact initial flags:
 Ask only when a relevant branch requires it:
 
 - cardiovascular / cerebrovascular disease history
-- CKD
 - PAD
 - atrial fibrillation
 - proteinuria
@@ -150,45 +150,204 @@ Treatment decisions remain with the clinician.
 
 ## 7. Logic 2 — Blood pressure
 
-Internal office-BP classification:
-- <120 and <80: normal
-- 120–129 and <80: elevated-normal
-- 130–139 or 80–89: high-normal
-- 140–159 or 90–99: grade I hypertension
-- 160–179 or 100–109: grade II hypertension
-- >=180 or >=110: grade III hypertension
+Evidence lock: see `docs/bp-evidence-lock-v0.1.md`.
 
-Use the higher SBP/DBP category.
+### Office-BP classification
 
-Risk classification may internally use:
-- cerebrovascular / cardiovascular disease
-- atrial fibrillation
-- diabetes
-- CKD with proteinuria
+Use the higher SBP / DBP category.
+
+- normal: SBP <120 and DBP <80
+- elevated-normal: SBP 120–129 and DBP <80
+- high-normal / elevated BP: SBP 130–139 and/or DBP 80–89
+- grade I hypertension: SBP 140–159 and/or DBP 90–99
+- grade II hypertension: SBP 160–179 and/or DBP 100–109
+- grade III hypertension: SBP >=180 and/or DBP >=110
+
+Diagnostic thresholds remain:
+- office hypertension: >=140/90 mmHg
+- home hypertension: >=135/85 mmHg
+
+A single office measurement is a classification input, not by itself proof of persistent hypertension.
+
+### Persistence / out-of-office confirmation
+
+For untreated office BP >=130/80, use a minimal confirmation state when current persistence is not already established:
+
+- elevated at another health check / office visit
+- elevated at home
+- not yet confirmed
+
+If not confirmed:
+- recommend home BP or another-day office measurement
+- keep the result as `needs confirmation` where persistence can change management
+
+Precedence for untreated patients:
+- elevated BP / high-normal and grade I hypertension: if persistence is not established, do **not** emit a medication-start message yet
+- grade I + high risk: show high-risk context, request prompt confirmation, and state that pharmacologic treatment should be considered promptly **if persistent hypertension is confirmed**
+- grade II hypertension: do not use a prolonged watch-and-wait branch; request prompt repeat / confirmation and clinical assessment, with pharmacologic treatment consideration once persistent hypertension is confirmed
+- grade III hypertension or a symptomatic / urgent clinical presentation: urgent clinical assessment supersedes the routine persistence-confirmation workflow
+
+For patients already receiving antihypertensive treatment:
+- do not ask whether hypertension is persistent
+- interpret the current BP against the treatment target
+- never use `start treatment` wording for an already-treated patient
+
+### JSH2025 cardiovascular-risk strata
+
+Internal layer-2 risk factors:
 - age >=65
 - male sex
 - dyslipidemia
 - current smoking
 
-Do not display JSH Category I / II / III unless needed for transparency. Prefer a clinically readable explanation.
+Operational dyslipidemia definition for the layer-2 count:
+- current lipid-lowering treatment -> count dyslipidemia as present
+- LDL-C >=140 mg/dL -> present
+- HDL-C <40 mg/dL -> present
+- fasting TG >=150 mg/dL -> present
+- nonfasting TG >=175 mg/dL -> present
+- if TG is 150–174 mg/dL and fasting status is unknown, keep the dyslipidemia factor unresolved **only when it can change the current JSH risk tier**; otherwise do not ask an extra question
 
-For untreated BP >=130/80, ask only if needed:
+LDL-C is therefore a shared baseline laboratory input. Fasting status remains conditional rather than a routine field.
 
-`Has elevated blood pressure been confirmed outside this single measurement?`
+Internal layer-3 / high-risk triggers:
+- prior cerebrovascular / cardiovascular disease
+- atrial fibrillation
+- diabetes
+- CKD with proteinuria
+- three or more layer-2 risk factors
 
-Options:
-- elevated at health check / another office visit
-- elevated at home
-- not yet confirmed
+Risk matrix:
 
-If not confirmed, suggest:
-- home BP or another-day office BP
+| Office-BP category | no layer-2/3 factor | layer-2 factor(s), fewer than 3 | layer-3 trigger / >=3 layer-2 factors |
+| --- | --- | --- | --- |
+| high-normal / elevated BP | low | moderate | high |
+| grade I hypertension | low | moderate | high |
+| grade II hypertension | moderate | high | high |
+| grade III hypertension | high | high | high |
 
-Output should explain:
-- current BP category
-- whether high-risk background is present
-- whether treatment consideration is immediate vs short-interval reassessment
-- any decision-relevant missing information
+Do not expose `risk layer 1/2/3` terminology in the routine user-facing UI. Explain the concrete reason for elevated risk instead.
+
+### Treatment / reassessment timing
+
+Lock the following operational wording for C2/C3.
+
+#### Untreated
+
+- high-normal / elevated BP + low/moderate risk:
+  - lifestyle modification
+  - planned reassessment
+  - no automatic immediate-drug message
+
+- high-normal / elevated BP + high risk:
+  - lifestyle modification
+  - short-interval reassessment, approximately 1 month
+  - if BP remains above target / persistent elevation is confirmed, pharmacologic treatment may be considered
+
+- grade I hypertension + low/moderate risk:
+  - if persistence is not established, confirm with home BP or another-day office BP
+  - lifestyle modification
+  - reassess within approximately 1 month
+  - if persistent, begin / consider pharmacologic treatment
+
+- grade I hypertension + high risk:
+  - if persistence is not established, obtain prompt confirmation rather than emitting an unconditional medication-start message
+  - once persistent hypertension is confirmed, lifestyle modification plus prompt pharmacologic treatment
+
+- grade II hypertension:
+  - prompt repeat / confirmation and clinical assessment
+  - do not create a prolonged lifestyle-only waiting branch
+  - once persistent hypertension is confirmed, lifestyle modification plus prompt pharmacologic treatment regardless of lower risk strata
+
+- grade III hypertension or symptomatic / urgent presentation:
+  - urgent clinical assessment
+  - do not route through a routine home-BP / another-day confirmation delay
+
+#### Already treated
+
+Do not use treatment-initiation wording.
+
+- office BP <130/80 mmHg:
+  - within the default office target
+  - continue current treatment / monitoring as clinically appropriate
+
+- office BP >=130/80 mmHg:
+  - above the default office target
+  - review current treatment context, adherence, tolerability, and available home BP
+  - consider treatment intensification as clinically appropriate
+  - grade II / III values warrant more prompt reassessment / treatment review than mild above-target values
+
+Do not convert these into autonomous prescribing instructions. The tool should describe timing and treatment consideration.
+
+### BP targets
+
+Default treatment targets:
+- office BP <130/80 mmHg
+- home BP <125/75 mmHg
+
+These targets apply broadly in JSH2025, including older adults, but treatment should be individualized when symptoms, orthostatic hypotension, AKI, hyperkalemia, frailty, or other intolerance limits further reduction.
+
+For CKD:
+- the 2026 Japanese Society of Nephrology statement aligns with an overall target of office <130/80 and home <125/75
+- in non-diabetic proteinuria-negative CKD, a cautious intermediate target of office <140/90 / home <135/85 may be used while titrating according to tolerance
+
+### Shared CKD input contract
+
+CKD is a cross-domain input in this application, not a BP-only field.
+
+Shared baseline inputs:
+- eGFR: numeric current renal-function value
+- CKD diagnosed / established: yes / no
+
+Do not infer established CKD from one isolated eGFR value alone.
+
+CKD diagnosis requires chronicity: kidney damage and/or GFR <60 mL/min/1.73m² persisting for more than 3 months. eGFR >=60 does not exclude CKD when persistent kidney-damage markers are present.
+
+Why this is shared:
+- BP: proteinuric CKD can alter JSH cardiovascular-risk stratification
+- lipids: CKD is a high-risk condition and will bypass the modified-Hisayama branch in Phase D
+- uric acid: CKD / renal impairment is a relevant complication in the UA 8.0–8.9 mg/dL treatment-consideration branch
+
+Do not make proteinuria a routine baseline input. Keep it conditional within the BP workflow when it can change the current JSH risk/timing branch.
+
+### Proteinuria — when it is decision-relevant
+
+Proteinuria is **not** needed merely to choose the default BP target.
+
+For this BP engine, ask proteinuria only when all of the following are true:
+- CKD is known / otherwise established
+- high-risk status has not already been established by CVD, AF, diabetes, or >=3 layer-2 factors
+- the current BP category is one in which high-risk status changes treatment timing, especially high-normal / elevated BP or grade I hypertension
+
+Proteinuria-positive CKD is a JSH2025 high-risk trigger.
+
+Operational positive threshold:
+- spot urine protein / creatinine ratio >=0.15 g/gCr
+
+If grade II / III hypertension already places the patient in a prompt-treatment branch, do not ask proteinuria solely to decide treatment timing.
+
+If proteinuria is unknown and its answer would change only the **internal JSH risk tier** but not the current user-visible BP category or treatment-timing branch:
+- allow the internal risk tier to remain unresolved / bounded (for example, moderate-or-high)
+- do not surface an extra proteinuria question merely to force an exact internal label
+- do not present a falsely precise risk tier
+
+Proteinuria can still matter for drug selection / renal management, but drug-class selection is outside the Phase C scope.
+
+### C2 implementation contract
+
+C2 should implement pure rules for:
+- office-BP category using the higher SBP / DBP category
+- internal risk level when determinable, or an explicit unresolved / bounded risk state when missing data cannot change the current action branch
+- high-risk trigger reason(s)
+- whether persistence confirmation is needed
+- whether proteinuria is decision-relevant
+- treatment-timing class:
+  - lifestyle / planned reassessment
+  - short-interval reassessment
+  - prompt confirmation / clinical assessment
+  - prompt pharmacologic-treatment consideration
+  - treated-above-target review / intensification consideration
+- office/home target context
 
 ## 8. Logic 3 — Lipids
 
