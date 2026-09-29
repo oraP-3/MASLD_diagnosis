@@ -979,18 +979,13 @@ export function evaluateLipidRouting(input) {
 
   const diagnosedCkd = triStateBoolean(input.diagnosedCkd);
   const pad = triStateBoolean(input.pad);
-  if (diagnosedCkd === null || pad === null) {
-    const missing = [];
-    if (diagnosedCkd === null) missing.push('diagnosed_ckd');
-    if (pad === null) missing.push('pad');
-    return unresolvedLipidRoute('primary_high_risk_status', missing);
-  }
-
   const highRiskReasons = [];
   if (diabetesState.status === 'diabetes') highRiskReasons.push('diabetes');
-  if (diagnosedCkd) highRiskReasons.push('ckd');
-  if (pad) highRiskReasons.push('pad');
+  if (diagnosedCkd === true) highRiskReasons.push('ckd');
+  if (pad === true) highRiskReasons.push('pad');
 
+  // Once a primary-prevention high-risk condition is established, another bypass
+  // condition does not need to be forced solely to determine routing.
   if (highRiskReasons.length > 0) {
     return {
       id: 'primary_high_risk',
@@ -1001,6 +996,13 @@ export function evaluateLipidRouting(input) {
       points: null,
       riskClass: 'high',
     };
+  }
+
+  if (diagnosedCkd === null || pad === null) {
+    const missing = [];
+    if (diagnosedCkd === null) missing.push('diagnosed_ckd');
+    if (pad === null) missing.push('pad');
+    return unresolvedLipidRoute('primary_high_risk_status', missing);
   }
 
   const age = toNumber(input.age);
@@ -1031,6 +1033,383 @@ export function evaluateLipidRouting(input) {
     score: scored.score,
     points: scored.points,
     riskClass: classifyModifiedHisayamaRisk(age, scored.score),
+  };
+}
+
+
+export const LIPID_TARGETS = Object.freeze({
+  primary: { low: 160, intermediate: 140, high: 120 },
+  diabetesDefault: 120,
+  diabetesStrict: 100,
+  ckd: 120,
+  pad: 120,
+  secondary: 100,
+  secondaryStrict: 70,
+  fhPrimary: 100,
+  fhSecondary: 70,
+  primaryLdlGuard: 180,
+  tgFasting: 150,
+  tgCasual: 175,
+  hdlMinimum: 40,
+});
+
+export function evaluateLipidTriglycerides(input) {
+  const tg = toNumber(input.tg);
+  const hdl = toNumber(input.hdl);
+  const fastingKnown = input.tgFastingStatus === 'fasting';
+  const tgThreshold = fastingKnown ? LIPID_TARGETS.tgFasting : LIPID_TARGETS.tgCasual;
+
+  return {
+    tg,
+    hdl,
+    fastingKnown,
+    sampleClass: fastingKnown ? 'fasting' : 'casual',
+    tgThreshold,
+    tgAboveTarget: tg === null ? null : tg >= tgThreshold,
+    hdlBelowTarget: hdl === null ? null : hdl < LIPID_TARGETS.hdlMinimum,
+  };
+}
+
+export function evaluateLipidTarget(input) {
+  const route = evaluateLipidRouting(input);
+  const diabetesState = evaluateLipidDiabetesState(input);
+  const knownFh = triStateBoolean(input.knownFh);
+  const familialTypeIII = triStateBoolean(input.familialTypeIII);
+  const secondary = triStateBoolean(input.qualifyingSecondaryPrevention);
+  const pad = triStateBoolean(input.pad);
+  const microvascular = triStateBoolean(input.diabeticMicrovascularDisease);
+  const acs = triStateBoolean(input.acuteCoronarySyndrome);
+  const combinedVascular = triStateBoolean(input.combinedCadAtherothromboticStroke);
+  const ldl = toNumber(input.ldl);
+  const age = toNumber(input.age);
+
+  const questionState = {
+    showSecondaryQuestion:
+      familialTypeIII !== true &&
+      knownFh !== null &&
+      familialTypeIII !== null,
+    showSecondarySubtypeQuestion: false,
+    showSecondaryCombinedQuestion: false,
+    showPadQuestion: false,
+    showDiabeticMicrovascularQuestion: false,
+  };
+
+  const base = {
+    route,
+    target: null,
+    targetReason: null,
+    status: 'unresolved',
+    strictReason: null,
+    ldl,
+    atTarget: null,
+    ldl180Guard: secondary === false && knownFh !== true && familialTypeIII !== true &&
+      ldl !== null && ldl >= LIPID_TARGETS.primaryLdlGuard,
+    questionState,
+  };
+
+  if (familialTypeIII === true) {
+    return { ...base, status: 'familial_type_iii', targetReason: 'familial_type_iii' };
+  }
+
+  if (knownFh === true) {
+    if (secondary === null) {
+      return { ...base, targetReason: 'fh_secondary_status_needed' };
+    }
+    const target = secondary ? LIPID_TARGETS.fhSecondary : LIPID_TARGETS.fhPrimary;
+    return {
+      ...base,
+      status: 'target_set',
+      target,
+      targetReason: secondary ? 'fh_secondary' : 'fh_primary',
+      atTarget: ldl === null ? null : ldl < target,
+    };
+  }
+
+  if (knownFh === null || familialTypeIII === null) {
+    return { ...base, targetReason: 'familial_status_needed' };
+  }
+
+  if (secondary === null) {
+    return { ...base, targetReason: 'secondary_status_needed' };
+  }
+
+  if (secondary === true) {
+    const strictReasons = [];
+    if (diabetesState.status === 'diabetes') strictReasons.push('diabetes');
+    if (acs === true) strictReasons.push('acute_coronary_syndrome');
+    if (combinedVascular === true) strictReasons.push('combined_cad_and_atherothrombotic_stroke');
+
+    questionState.showSecondarySubtypeQuestion = diabetesState.status !== 'diabetes';
+    questionState.showSecondaryCombinedQuestion =
+      questionState.showSecondarySubtypeQuestion && acs === false;
+
+    if (strictReasons.length > 0) {
+      const target = LIPID_TARGETS.secondaryStrict;
+      return {
+        ...base,
+        status: 'target_set',
+        target,
+        targetReason: 'secondary_strict',
+        strictReason: strictReasons[0],
+        atTarget: ldl === null ? null : ldl < target,
+      };
+    }
+
+    let strictnessUnresolved = diabetesState.status === 'unresolved';
+    if (diabetesState.status !== 'diabetes') {
+      if (acs === null) strictnessUnresolved = true;
+      else if (acs === false && combinedVascular === null) strictnessUnresolved = true;
+    }
+
+    if (strictnessUnresolved) {
+      return { ...base, targetReason: 'secondary_strictness_unresolved' };
+    }
+
+    const target = LIPID_TARGETS.secondary;
+    return {
+      ...base,
+      status: 'target_set',
+      target,
+      targetReason: 'secondary_base',
+      atTarget: ldl === null ? null : ldl < target,
+    };
+  }
+
+  if (diabetesState.status === 'unresolved') {
+    return { ...base, targetReason: 'diabetes_status_unresolved' };
+  }
+
+  const diagnosedCkd = triStateBoolean(input.diagnosedCkd);
+
+  if (diabetesState.status === 'diabetes') {
+    if (input.currentSmoking === true || pad === true || microvascular === true) {
+      const strictReason = input.currentSmoking === true
+        ? 'current_smoking'
+        : pad === true
+          ? 'pad'
+          : 'diabetic_microvascular_disease';
+      if (input.currentSmoking !== true) {
+        questionState.showPadQuestion = true;
+        questionState.showDiabeticMicrovascularQuestion = pad === false;
+      }
+      const target = LIPID_TARGETS.diabetesStrict;
+      return {
+        ...base,
+        status: 'target_set',
+        target,
+        targetReason: 'diabetes_strict',
+        strictReason,
+        atTarget: ldl === null ? null : ldl < target,
+      };
+    }
+
+    if (input.currentSmoking !== true && pad === null) {
+      questionState.showPadQuestion = true;
+      return { ...base, targetReason: 'diabetes_pad_status_needed' };
+    }
+
+    if (input.currentSmoking !== true && pad === false && microvascular === null) {
+      questionState.showPadQuestion = true;
+      questionState.showDiabeticMicrovascularQuestion = true;
+      return { ...base, targetReason: 'diabetes_microvascular_status_needed' };
+    }
+
+    questionState.showPadQuestion = input.currentSmoking !== true;
+    questionState.showDiabeticMicrovascularQuestion =
+      input.currentSmoking !== true && pad === false;
+
+    const target = LIPID_TARGETS.diabetesDefault;
+    return {
+      ...base,
+      status: 'target_set',
+      target,
+      targetReason: 'diabetes_default',
+      atTarget: ldl === null ? null : ldl < target,
+    };
+  }
+
+  if (diagnosedCkd === true) {
+    const target = LIPID_TARGETS.ckd;
+    return {
+      ...base,
+      status: 'target_set',
+      target,
+      targetReason: 'ckd',
+      atTarget: ldl === null ? null : ldl < target,
+    };
+  }
+
+  if (diagnosedCkd === null) {
+    return { ...base, targetReason: 'ckd_status_needed' };
+  }
+
+  if (pad === null) {
+    questionState.showPadQuestion = true;
+    return { ...base, targetReason: 'pad_status_needed' };
+  }
+
+  questionState.showPadQuestion = true;
+
+  if (pad === true) {
+    const target = LIPID_TARGETS.pad;
+    return {
+      ...base,
+      status: 'target_set',
+      target,
+      targetReason: 'pad',
+      atTarget: ldl === null ? null : ldl < target,
+    };
+  }
+
+  if (route.id === 'modified_hisayama') {
+    const target = LIPID_TARGETS.primary[route.riskClass];
+    return {
+      ...base,
+      status: 'target_set',
+      target,
+      targetReason: `primary_${route.riskClass}`,
+      atTarget: ldl === null ? null : ldl < target,
+    };
+  }
+
+  if (route.id === 'out_of_score_range') {
+    return {
+      ...base,
+      status: 'out_of_score_range',
+      targetReason: route.bypassReason,
+      age,
+    };
+  }
+
+  return {
+    ...base,
+    targetReason: route.reason || 'routing_unresolved',
+  };
+}
+
+function lipidTargetReasonLabel(result) {
+  switch (result.targetReason) {
+    case 'fh_primary': return '既知FH・一次予防';
+    case 'fh_secondary': return '既知FH・二次予防';
+    case 'secondary_base': return '二次予防';
+    case 'secondary_strict':
+      if (result.strictReason === 'diabetes') return '二次予防＋糖尿病';
+      if (result.strictReason === 'acute_coronary_syndrome') return '二次予防＋ACS';
+      return '冠動脈疾患＋アテローム血栓性脳梗塞';
+    case 'diabetes_default': return '糖尿病・一次予防';
+    case 'diabetes_strict':
+      if (result.strictReason === 'current_smoking') return '糖尿病＋現在喫煙';
+      if (result.strictReason === 'pad') return '糖尿病＋PAD';
+      return '糖尿病＋細小血管症';
+    case 'ckd': return 'CKD・一次予防';
+    case 'pad': return 'PAD・一次予防';
+    case 'primary_low': return '一次予防・低リスク';
+    case 'primary_intermediate': return '一次予防・中リスク';
+    case 'primary_high': return '一次予防・高リスク';
+    default: return '';
+  }
+}
+
+export function summarizeLipids(input) {
+  const targetResult = evaluateLipidTarget(input);
+  const tgResult = evaluateLipidTriglycerides(input);
+  const questionState = targetResult.questionState;
+  const reasonLabel = lipidTargetReasonLabel(targetResult);
+
+  let title = '脂質リスク判定待ち';
+  let detail = '';
+  let tone = 'neutral';
+
+  if (targetResult.status === 'target_set') {
+    const diabetesStrict = targetResult.targetReason === 'diabetes_strict';
+    title = diabetesStrict
+      ? `LDL-C <${targetResult.target} mg/dLへの厳格化を考慮`
+      : `LDL-C目標 <${targetResult.target} mg/dL`;
+    const valueText = targetResult.ldl === null
+      ? 'LDL-Cを入力すると現在値との位置づけを表示します。'
+      : diabetesStrict
+        ? targetResult.atTarget
+          ? `現在 ${targetResult.ldl} mg/dLで、考慮する厳格化目標の範囲内です。`
+          : `現在 ${targetResult.ldl} mg/dLです。`
+        : targetResult.atTarget
+          ? `現在 ${targetResult.ldl} mg/dLで目標内です。`
+          : `現在 ${targetResult.ldl} mg/dLで目標以上です。`;
+    const treatmentText = targetResult.ldl !== null && !targetResult.atTarget
+      ? input.lipidTreatment
+        ? ' 脂質低下療法中のため、治療強化の要否を臨床的に検討します。'
+        : ' 目標達成に向けた介入の要否を臨床的に検討します。'
+      : input.lipidTreatment
+        ? ' 脂質低下療法中です。'
+        : '';
+    detail = diabetesStrict
+      ? `${reasonLabel}では基本目標 <120 mg/dLに加えて <100 mg/dLへの厳格化を考慮します。 ${valueText}${treatmentText}`
+      : `${reasonLabel}。 ${valueText}${treatmentText}`;
+    if (toNumber(input.age) !== null && toNumber(input.age) >= 80) {
+      detail += ' 80歳以上では全身状態・フレイル等を踏まえて管理目標を個別化します。';
+    }
+    tone = targetResult.atTarget === true ? 'good' : targetResult.atTarget === false ? 'warn' : 'neutral';
+  } else if (targetResult.status === 'familial_type_iii') {
+    title = '家族性III型高脂血症 — 一般フロー対象外';
+    detail = 'JASの一般的なLDL-C管理目標フローをそのまま当てず、病型に応じて個別に管理します。';
+    tone = 'warn';
+  } else if (targetResult.status === 'out_of_score_range') {
+    if (targetResult.targetReason === 'age_under_40') {
+      title = 'modified Hisayama適用外（40歳未満）';
+      detail = '40–79歳用の絶対リスク分類は適用せず、生涯リスクや個別背景を踏まえて判断します。';
+    } else {
+      title = 'modified Hisayama適用外（80歳以上）';
+      detail = '40–79歳用の絶対リスク分類は適用せず、全身状態・フレイル等を含めて個別化します。';
+    }
+    tone = 'neutral';
+  } else {
+    const waiting = {
+      familial_status_needed: 'FH／家族性III型高脂血症の既知診断を確認してください。',
+      fh_secondary_status_needed: 'FHのLDL-C目標は一次予防か二次予防かで変わります。',
+      secondary_status_needed: '脂質二次予防に該当する疾患の有無を確認してください。',
+      secondary_strictness_unresolved: '二次予防の厳格化条件を確認するとLDL-C目標が確定します。',
+      diabetes_status_unresolved: '糖尿病診断の確定状況で脂質ルーティングが変わるため確認待ちです。',
+      diabetes_pad_status_needed: '糖尿病ではPADの有無でLDL-C目標が変わります。',
+      diabetes_microvascular_status_needed: '糖尿病細小血管症の有無でLDL-C目標が変わります。',
+      ckd_status_needed: 'CKDの既知診断を確認してください。',
+      pad_status_needed: 'PADの有無でリスク分類が変わります。',
+    };
+    detail = waiting[targetResult.targetReason] || '判定に必要な情報を入力してください。';
+    tone = 'warn';
+  }
+
+  if (targetResult.ldl180Guard) {
+    detail += ' LDL-C 180 mg/dL以上では通常のrisk分類とは別に薬物療法を考慮し、FHも検討します。';
+    if (tone === 'good') tone = 'warn';
+  }
+
+  const tgParts = [];
+  if (tgResult.tg !== null) {
+    const sampleLabel = tgResult.fastingKnown ? '空腹時' : '随時扱い';
+    tgParts.push(
+      `TG ${tgResult.tg} mg/dL（${sampleLabel}、目標 <${tgResult.tgThreshold}）${tgResult.tgAboveTarget ? '：目標以上' : '：目標内'}`,
+    );
+  }
+  if (tgResult.hdl !== null) {
+    tgParts.push(
+      `HDL-C ${tgResult.hdl} mg/dL（目標 ≥${LIPID_TARGETS.hdlMinimum}）${tgResult.hdlBelowTarget ? '：低値' : '：目標内'}`,
+    );
+  }
+
+  return {
+    ...targetResult,
+    title,
+    detail,
+    tone,
+    tgTitle: tgParts.length ? 'TG / HDL-C' : 'TG / HDL-C入力待ち',
+    tgDetail: tgParts.length ? tgParts.join('。') + '。' : 'TGまたはHDL-Cを入力してください。',
+    tgTone: tgResult.tgAboveTarget === true || tgResult.hdlBelowTarget === true ? 'warn' :
+      (tgResult.tgAboveTarget === false || tgResult.hdlBelowTarget === false) ? 'good' : 'neutral',
+    showSecondaryQuestion: questionState.showSecondaryQuestion,
+    showSecondarySubtypeQuestion: questionState.showSecondarySubtypeQuestion,
+    showSecondaryCombinedQuestion: questionState.showSecondaryCombinedQuestion,
+    showPadQuestion: questionState.showPadQuestion,
+    showDiabeticMicrovascularQuestion: questionState.showDiabeticMicrovascularQuestion,
+    showLipidTgFastingQuestion: false,
   };
 }
 

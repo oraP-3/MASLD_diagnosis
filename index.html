@@ -124,7 +124,71 @@
     </section>
 
     <section class="card">
-      <div class="section-heading"><div><span class="step">4</span><h2>SLD分類</h2></div></div>
+      <div class="section-heading"><div><span class="step">4</span><h2>脂質</h2></div></div>
+
+      <fieldset class="inline-fieldset">
+        <legend>既知の家族性脂質異常症</legend>
+        <label class="choice"><input type="radio" name="familialLipidStatus" value="none" /> なし</label>
+        <label class="choice"><input type="radio" name="familialLipidStatus" value="fh" /> FH</label>
+        <label class="choice"><input type="radio" name="familialLipidStatus" value="type3" /> 家族性III型高脂血症</label>
+      </fieldset>
+      <p class="microcopy">ここでは既に診断されているFH／家族性III型のみを選択します。FHの新規診断は本ツールの対象外です。</p>
+
+      <div id="lipidSecondaryPrompt" class="conditional-box hidden">
+        <strong>脂質二次予防の確認</strong>
+        <p>冠動脈疾患、またはアテローム血栓性脳梗塞などJASの脂質二次予防対象に該当しますか。</p>
+        <fieldset class="inline-fieldset">
+          <label class="choice"><input type="radio" name="lipidSecondaryPrevention" value="true" /> 該当</label>
+          <label class="choice"><input type="radio" name="lipidSecondaryPrevention" value="false" /> 非該当</label>
+        </fieldset>
+      </div>
+
+      <div id="lipidSecondarySubtypePrompt" class="conditional-box hidden">
+        <strong>二次予防の厳格化条件</strong>
+        <fieldset class="inline-fieldset">
+          <legend>急性冠症候群（ACS）の既往</legend>
+          <label class="choice"><input type="radio" name="lipidAcs" value="true" /> あり</label>
+          <label class="choice"><input type="radio" name="lipidAcs" value="false" /> なし</label>
+        </fieldset>
+      </div>
+
+      <div id="lipidSecondaryCombinedPrompt" class="conditional-box hidden">
+        <strong>冠動脈疾患と脳梗塞の併存確認</strong>
+        <fieldset class="inline-fieldset">
+          <legend>冠動脈疾患と、アテローム血栓性脳梗塞／明らかなアテロームを伴う脳梗塞を両方有する</legend>
+          <label class="choice"><input type="radio" name="lipidCombinedCadStroke" value="true" /> はい</label>
+          <label class="choice"><input type="radio" name="lipidCombinedCadStroke" value="false" /> いいえ</label>
+        </fieldset>
+      </div>
+
+      <div id="lipidPadPrompt" class="conditional-box hidden">
+        <strong>PADの確認</strong>
+        <fieldset class="inline-fieldset">
+          <legend>末梢動脈疾患（PAD）</legend>
+          <label class="choice"><input type="radio" name="lipidPad" value="true" /> あり</label>
+          <label class="choice"><input type="radio" name="lipidPad" value="false" /> なし</label>
+        </fieldset>
+      </div>
+
+      <div id="lipidMicrovascularPrompt" class="conditional-box hidden">
+        <strong>糖尿病の厳格化条件</strong>
+        <fieldset class="inline-fieldset">
+          <legend>糖尿病細小血管症（網膜症・腎症・神経障害）</legend>
+          <label class="choice"><input type="radio" name="lipidDiabeticMicrovascularDisease" value="true" /> あり</label>
+          <label class="choice"><input type="radio" name="lipidDiabeticMicrovascularDisease" value="false" /> なし</label>
+        </fieldset>
+        <p class="microcopy">単にCKD診断済みというだけでは糖尿病性腎症とはみなしません。</p>
+      </div>
+
+      <div class="result-grid top-gap">
+        <div id="lipidLdlResult" class="result-card neutral"><p class="result-label">LDL-C</p><h3>脂質リスク判定待ち</h3><p>脂質固有の背景を確認してください。</p></div>
+        <div id="lipidTgResult" class="result-card neutral"><p class="result-label">TG / HDL-C</p><h3>入力待ち</h3><p>TGまたはHDL-Cを入力してください。</p></div>
+      </div>
+      <p class="microcopy">TGは空腹時と明確に確認できる場合のみ &lt;150 mg/dL、それ以外は随時扱いで &lt;175 mg/dLを用います。脂質判定のためだけにTG 150–174 mg/dLで空腹時確認を追加しません。</p>
+    </section>
+
+    <section class="card">
+      <div class="section-heading"><div><span class="step">5</span><h2>SLD分類</h2></div></div>
       <div class="grid cols-2">
         <fieldset class="inline-fieldset">
           <legend>肝脂肪化</legend>
@@ -162,7 +226,7 @@
     </section>
 
     <section class="card">
-      <div class="section-heading"><div><span class="step">5</span><h2>肝線維化</h2></div></div>
+      <div class="section-heading"><div><span class="step">6</span><h2>肝線維化</h2></div></div>
       <div class="grid cols-3">
         <label>AST U/L<input id="ast" type="number" min="1" max="5000" inputmode="numeric" /></label>
         <label>ALT U/L<input id="alt" type="number" min="1" max="5000" inputmode="numeric" /></label>
@@ -191,7 +255,7 @@
     </section>
 
     <section class="card">
-      <div class="section-heading"><div><span class="step">6</span><h2>尿酸</h2></div></div>
+      <div class="section-heading"><div><span class="step">7</span><h2>尿酸</h2></div></div>
       <label>尿酸 mg/dL<input id="uricAcid" type="number" min="0" max="30" step="0.1" inputmode="decimal" placeholder="例 7.8" /></label>
       <label class="choice-card top-gap compact"><input id="urateTreatment" type="checkbox" /> 尿酸降下薬使用中</label>
 
@@ -225,7 +289,7 @@
       <p class="microcopy">8 / 9 mg/dLは薬物療法を「考慮する」閾値であり、自動的な投薬適応ではありません。</p>
     </section>
 
-    <section class="card info-card"><h2>現在の実装範囲</h2><p>SLD分類、肝線維化評価、糖代謝評価、尿酸評価に加え、血圧の分類・リスク判定と条件入力まで実装しています。血圧のaction summaryと脂質の治療Logicは後続Phaseで追加します。</p></section>
+    <section class="card info-card"><h2>現在の実装範囲</h2><p>SLD分類、肝線維化、糖代謝、尿酸、血圧に加え、脂質のJASリスク分類・LDL-C目標・条件入力まで実装しています。脂質Phaseの統合QAはD4で行います。</p></section>
   </main>
   <script type="module" src="./app.js"></script>
 </body>

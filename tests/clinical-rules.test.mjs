@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { calculateBmi, deriveCmrf, evaluateGlycemia, classifyOfficeBp, evaluateBpDyslipidemia, evaluateBloodPressure, summarizeBloodPressure, evaluateLipidDiabetesState, calculateModifiedHisayama, classifyModifiedHisayamaRisk, evaluateLipidRouting, evaluateUricAcid, classifySld, calculateFib4, evaluateFib4, evaluatePlatelets, shouldShowNit, interpretNit } from '../clinical-rules.js';
+import { calculateBmi, deriveCmrf, evaluateGlycemia, classifyOfficeBp, evaluateBpDyslipidemia, evaluateBloodPressure, summarizeBloodPressure, evaluateLipidDiabetesState, calculateModifiedHisayama, classifyModifiedHisayamaRisk, evaluateLipidRouting, evaluateLipidTriglycerides, evaluateLipidTarget, summarizeLipids, evaluateUricAcid, classifySld, calculateFib4, evaluateFib4, evaluatePlatelets, shouldShowNit, interpretNit } from '../clinical-rules.js';
 
 test('BMI helper rounds to one decimal place',()=>assert.equal(calculateBmi(182,88),26.6));
 test('CMRF is derived from numeric inputs without manual checkboxes',()=>{const c=deriveCmrf({sex:'male',bmi:22.5,waist:90,hba1c:5.8,sbp:125,dbp:78,tg:120,hdl:55,diagnosedDiabetes:false,antihypertensiveTreatment:false,lipidTreatment:false});assert.equal(c.statuses.glucose,true);assert.equal(c.count,1)});
@@ -661,4 +661,158 @@ test('D2 DBP and antihypertensive treatment do not add modified Hisayama points'
   const changed=calculateModifiedHisayama({...lipidBase,dbp:120,antihypertensiveTreatment:true});
   assert.equal(changed.score,base.score);
   assert.deepEqual(changed.points,base.points);
+});
+
+
+test('D3 an established CKD or diabetes bypass does not force PAD solely for routing',()=>{
+  const diabetes=evaluateLipidRouting({...lipidBase,diagnosedDiabetes:true,pad:null});
+  const ckd=evaluateLipidRouting({...lipidBase,diagnosedCkd:true,pad:null});
+  assert.equal(diabetes.id,'primary_high_risk');
+  assert.equal(ckd.id,'primary_high_risk');
+});
+
+test('D3 primary-prevention LDL targets follow low intermediate high risk classes',()=>{
+  const low=evaluateLipidTarget({...lipidBase,age:45,pad:false});
+  const intermediate=evaluateLipidTarget({...lipidBase,age:55,sex:'male',sbp:145,ldl:145,hdl:45,hba1c:6.0,fastingGlucose:110,currentSmoking:true,pad:false});
+  const high=evaluateLipidTarget({...lipidBase,age:65,sex:'male',sbp:145,ldl:145,hdl:45,hba1c:6.0,fastingGlucose:110,currentSmoking:true,pad:false});
+  assert.equal(low.target,160);
+  assert.equal(intermediate.target,140);
+  assert.equal(high.target,120);
+});
+
+test('D3 diabetes defaults to LDL <120 and tightens to <100 for smoking PAD or microvascular disease',()=>{
+  const base={...lipidBase,diagnosedDiabetes:true,pad:false,diabeticMicrovascularDisease:false};
+  assert.equal(evaluateLipidTarget(base).target,120);
+  assert.equal(evaluateLipidTarget({...base,currentSmoking:true}).target,100);
+  assert.equal(evaluateLipidTarget({...base,pad:true,diabeticMicrovascularDisease:null}).target,100);
+  assert.equal(evaluateLipidTarget({...base,diabeticMicrovascularDisease:true}).target,100);
+});
+
+test('D3 generic CKD does not stand in for diabetic nephropathy',()=>{
+  const r=evaluateLipidTarget({...lipidBase,diagnosedDiabetes:true,diagnosedCkd:true,pad:false,diabeticMicrovascularDisease:false});
+  assert.equal(r.target,120);
+  assert.equal(r.targetReason,'diabetes_default');
+});
+
+test('D3 PAD and CKD primary prevention use LDL <120',()=>{
+  assert.equal(evaluateLipidTarget({...lipidBase,pad:true}).target,120);
+  assert.equal(evaluateLipidTarget({...lipidBase,diagnosedCkd:true,pad:null}).target,120);
+});
+
+test('D3 known FH uses <100 in primary prevention and <70 in secondary prevention',()=>{
+  const primary=evaluateLipidTarget({...lipidBase,knownFh:true,familialTypeIII:false,qualifyingSecondaryPrevention:false,pad:null});
+  const secondary=evaluateLipidTarget({...lipidBase,knownFh:true,familialTypeIII:false,qualifyingSecondaryPrevention:true,pad:null});
+  assert.equal(primary.target,100);
+  assert.equal(secondary.target,70);
+});
+
+test('D3 secondary prevention defaults to <100 and tightens to <70 for diabetes ACS or combined vascular disease',()=>{
+  const base={...lipidBase,qualifyingSecondaryPrevention:true,acuteCoronarySyndrome:false,combinedCadAtherothromboticStroke:false};
+  assert.equal(evaluateLipidTarget(base).target,100);
+  assert.equal(evaluateLipidTarget({...base,diagnosedDiabetes:true}).target,70);
+  assert.equal(evaluateLipidTarget({...base,acuteCoronarySyndrome:true}).target,70);
+  assert.equal(evaluateLipidTarget({...base,combinedCadAtherothromboticStroke:true}).target,70);
+});
+
+test('D3 secondary prevention stays unresolved while a stricter target can still be established',()=>{
+  const acsUnknown=evaluateLipidTarget({...lipidBase,qualifyingSecondaryPrevention:true,acuteCoronarySyndrome:null,combinedCadAtherothromboticStroke:null});
+  assert.equal(acsUnknown.status,'unresolved');
+  assert.equal(acsUnknown.questionState.showSecondarySubtypeQuestion,true);
+  const combinedUnknown=evaluateLipidTarget({...lipidBase,qualifyingSecondaryPrevention:true,acuteCoronarySyndrome:false,combinedCadAtherothromboticStroke:null});
+  assert.equal(combinedUnknown.status,'unresolved');
+  assert.equal(combinedUnknown.questionState.showSecondaryCombinedQuestion,true);
+});
+
+test('D3 diabetes asks PAD then microvascular disease only while they can tighten the target',()=>{
+  const needsPad=evaluateLipidTarget({...lipidBase,diagnosedDiabetes:true,pad:null,diabeticMicrovascularDisease:null});
+  assert.equal(needsPad.questionState.showPadQuestion,true);
+  assert.equal(needsPad.questionState.showDiabeticMicrovascularQuestion,false);
+  const needsMicro=evaluateLipidTarget({...lipidBase,diagnosedDiabetes:true,pad:false,diabeticMicrovascularDisease:null});
+  assert.equal(needsMicro.questionState.showPadQuestion,true);
+  assert.equal(needsMicro.questionState.showDiabeticMicrovascularQuestion,true);
+  const smoking=evaluateLipidTarget({...lipidBase,diagnosedDiabetes:true,currentSmoking:true,pad:null,diabeticMicrovascularDisease:null});
+  assert.equal(smoking.target,100);
+  assert.equal(smoking.questionState.showPadQuestion,false);
+  assert.equal(smoking.questionState.showDiabeticMicrovascularQuestion,false);
+});
+
+test('D3 non-diabetic CKD suppresses PAD because it cannot change the LDL target',()=>{
+  const r=evaluateLipidTarget({...lipidBase,diagnosedCkd:true,pad:null});
+  assert.equal(r.target,120);
+  assert.equal(r.questionState.showPadQuestion,false);
+});
+
+test('D3 LDL >=180 primary prevention raises an FH and pharmacotherapy guard without changing the risk target',()=>{
+  const r=evaluateLipidTarget({...lipidBase,ldl:180,pad:false});
+  assert.equal(r.ldl180Guard,true);
+  assert.equal(r.target,160);
+});
+
+test('D3 LDL exactly at the numeric threshold is not counted as target attainment',()=>{
+  const r=evaluateLipidTarget({...lipidBase,ldl:160,pad:false});
+  assert.equal(r.target,160);
+  assert.equal(r.atTarget,false);
+});
+
+test('D3 age outside 40 to 79 has no forced score-derived LDL target',()=>{
+  assert.equal(evaluateLipidTarget({...lipidBase,age:39,pad:false}).status,'out_of_score_range');
+  assert.equal(evaluateLipidTarget({...lipidBase,age:39,pad:false}).target,null);
+  assert.equal(evaluateLipidTarget({...lipidBase,age:80,pad:false}).status,'out_of_score_range');
+  assert.equal(evaluateLipidTarget({...lipidBase,age:80,pad:false}).target,null);
+});
+
+test('D3 familial type III does not receive a general-flow LDL target',()=>{
+  const r=evaluateLipidTarget({...lipidBase,knownFh:false,familialTypeIII:true,qualifyingSecondaryPrevention:null,pad:null});
+  assert.equal(r.status,'familial_type_iii');
+  assert.equal(r.target,null);
+});
+
+test('D3 triglycerides use fasting <150 only when fasting is explicitly known',()=>{
+  const unknown=evaluateLipidTriglycerides({...lipidBase,tg:160,tgFastingStatus:''});
+  const nonfasting=evaluateLipidTriglycerides({...lipidBase,tg:160,tgFastingStatus:'nonfasting'});
+  const fasting=evaluateLipidTriglycerides({...lipidBase,tg:160,tgFastingStatus:'fasting'});
+  assert.equal(unknown.sampleClass,'casual');
+  assert.equal(unknown.tgThreshold,175);
+  assert.equal(unknown.tgAboveTarget,false);
+  assert.equal(nonfasting.tgThreshold,175);
+  assert.equal(fasting.tgThreshold,150);
+  assert.equal(fasting.tgAboveTarget,true);
+});
+
+test('D3 lipid summary never requests a TG fasting-status question solely for lipid classification',()=>{
+  const r=summarizeLipids({...lipidBase,tg:160,tgFastingStatus:'',pad:false});
+  assert.equal(r.showLipidTgFastingQuestion,false);
+  assert.match(r.tgDetail,/随時扱い/);
+});
+
+test('D3 treatment context distinguishes target attainment from above-target treated state',()=>{
+  const atTarget=summarizeLipids({...lipidBase,ldl:100,pad:false,lipidTreatment:true});
+  const above=summarizeLipids({...lipidBase,ldl:170,pad:false,lipidTreatment:true});
+  assert.equal(atTarget.tone,'good');
+  assert.match(atTarget.detail,/脂質低下療法中/);
+  assert.equal(above.tone,'warn');
+  assert.match(above.detail,/治療強化の要否/);
+});
+
+
+test('D3 answered diabetes tightening questions remain visible for review',()=>{
+  const padPositive=evaluateLipidTarget({...lipidBase,diagnosedDiabetes:true,pad:true,diabeticMicrovascularDisease:null});
+  assert.equal(padPositive.questionState.showPadQuestion,true);
+  const microPositive=evaluateLipidTarget({...lipidBase,diagnosedDiabetes:true,pad:false,diabeticMicrovascularDisease:true});
+  assert.equal(microPositive.questionState.showPadQuestion,true);
+  assert.equal(microPositive.questionState.showDiabeticMicrovascularQuestion,true);
+});
+
+test('D3 age 80 or older high-risk target carries individualization wording',()=>{
+  const r=summarizeLipids({...lipidBase,age:82,diagnosedCkd:true,pad:null});
+  assert.equal(r.target,120);
+  assert.match(r.detail,/フレイル/);
+});
+
+
+test('D3 diabetes strict branch preserves consider wording rather than presenting <100 as an unconditional target',()=>{
+  const r=summarizeLipids({...lipidBase,diagnosedDiabetes:true,currentSmoking:true,pad:null,diabeticMicrovascularDisease:null,ldl:110});
+  assert.match(r.title,/厳格化を考慮/);
+  assert.match(r.detail,/基本目標 <120/);
+  assert.match(r.detail,/<100 mg\/dLへの厳格化を考慮/);
 });
