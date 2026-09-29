@@ -193,6 +193,16 @@ Internal layer-2 risk factors:
 - dyslipidemia
 - current smoking
 
+Operational dyslipidemia definition for the layer-2 count:
+- current lipid-lowering treatment -> count dyslipidemia as present
+- LDL-C >=140 mg/dL -> present
+- HDL-C <40 mg/dL -> present
+- fasting TG >=150 mg/dL -> present
+- nonfasting TG >=175 mg/dL -> present
+- if TG is 150–174 mg/dL and fasting status is unknown, keep the dyslipidemia factor unresolved **only when it can change the current JSH risk tier**; otherwise do not ask an extra question
+
+LDL-C is therefore a shared baseline laboratory input. Fasting status remains conditional rather than a routine field.
+
 Internal layer-3 / high-risk triggers:
 - prior cerebrovascular / cardiovascular disease
 - atrial fibrillation
