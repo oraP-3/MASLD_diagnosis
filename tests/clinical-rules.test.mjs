@@ -249,7 +249,7 @@ test('treated grade III BP still routes to urgent assessment',()=>{
 });
 
 test('known diabetes suppresses redundant CVD and AF prompt when elevated-BP risk is already high',()=>{
-  const r=evaluateBloodPressure({...bpBase,diagnosedDiabetes:true});
+  const r=evaluateBloodPressure({...bpBase,diagnosedDiabetes:true,cvdHistory:null,atrialFibrillation:null});
   assert.equal(r.riskLevel,'high');
   assert.equal(r.showRiskBackground,false);
   assert.equal(r.showTgFastingQuestion,false);
@@ -257,7 +257,7 @@ test('known diabetes suppresses redundant CVD and AF prompt when elevated-BP ris
 });
 
 test('three known layer-2 factors suppress redundant CVD and AF prompt',()=>{
-  const r=evaluateBloodPressure({...bpBase,age:65,sex:'male',currentSmoking:true});
+  const r=evaluateBloodPressure({...bpBase,age:65,sex:'male',currentSmoking:true,cvdHistory:null,atrialFibrillation:null});
   assert.equal(r.riskLevel,'high');
   assert.equal(r.showRiskBackground,false);
 });
@@ -266,4 +266,39 @@ test('confirmed high-risk elevated BP preserves both short-interval reassessment
   const r=evaluateBloodPressure({...bpBase,diagnosedDiabetes:true,bpPersistence:'home'});
   assert.equal(r.riskLevel,'high');
   assert.equal(r.timingClass,'short_interval_reassessment_with_pharmacologic_consideration');
+});
+
+
+test('answered CVD and AF questions remain visible after proteinuria makes risk high',()=>{
+  const before=evaluateBloodPressure({
+    ...bpBase,
+    diagnosedCkd:true,
+    cvdHistory:false,
+    atrialFibrillation:false,
+    proteinuriaPresent:null,
+  });
+  assert.equal(before.showRiskBackground,true);
+  assert.equal(before.showProteinuriaQuestion,true);
+
+  const after=evaluateBloodPressure({
+    ...bpBase,
+    diagnosedCkd:true,
+    cvdHistory:false,
+    atrialFibrillation:false,
+    proteinuriaPresent:true,
+  });
+  assert.equal(after.riskLevel,'high');
+  assert.equal(after.showRiskBackground,true);
+  assert.equal(after.showProteinuriaQuestion,true);
+});
+
+test('CVD and AF stay hidden when diabetes is already known high risk and they were never answered',()=>{
+  const r=evaluateBloodPressure({
+    ...bpBase,
+    diagnosedDiabetes:true,
+    cvdHistory:null,
+    atrialFibrillation:null,
+  });
+  assert.equal(r.riskLevel,'high');
+  assert.equal(r.showRiskBackground,false);
 });

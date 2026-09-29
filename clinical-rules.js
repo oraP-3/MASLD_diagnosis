@@ -449,10 +449,13 @@ export function evaluateBloodPressure(input) {
     Boolean(input.diagnosedDiabetes) ||
     knownLayer2Count >= 3 ||
     (Boolean(input.diagnosedCkd) && input.proteinuriaPresent === true);
+  const riskBackgroundAlreadyAnswered =
+    input.cvdHistory !== null && input.cvdHistory !== undefined ||
+    input.atrialFibrillation !== null && input.atrialFibrillation !== undefined;
   const showRiskBackground =
     !treated &&
     ['elevated', 'grade1'].includes(category.id) &&
-    !highRiskEstablishedWithoutCvdAf;
+    (!highRiskEstablishedWithoutCvdAf || riskBackgroundAlreadyAnswered);
 
   const riskBackgroundResolved =
     highRiskEstablishedWithoutCvdAf ||
