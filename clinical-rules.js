@@ -774,6 +774,265 @@ export function summarizeBloodPressure(input) {
   };
 }
 
+
+export const LIPID_HISAYAMA_THRESHOLDS = Object.freeze({
+  ageMin: 40,
+  ageMax: 79,
+  sbp: [120, 130, 140, 160],
+  ldl: [120, 140, 160],
+  hdl: [40, 60],
+  hba1cAbnormal: 5.7,
+  fastingGlucoseAbnormal: 100,
+});
+
+function triStateBoolean(value) {
+  if (value === true) return true;
+  if (value === false) return false;
+  return null;
+}
+
+export function evaluateLipidDiabetesState(input) {
+  if (input.diagnosedDiabetes === true) {
+    return { status: 'diabetes', glucoseAbnormality: null, reason: 'diagnosed_diabetes' };
+  }
+
+  const hba1c = toNumber(input.hba1c);
+  const fastingGlucose = toNumber(input.fastingGlucose);
+  const randomGlucose = toNumber(input.randomGlucose);
+
+  const hba1cDiabetic = hba1c !== null && hba1c >= GLYCEMIA_THRESHOLDS.diabeticHba1c;
+  const fastingDiabetic = fastingGlucose !== null && fastingGlucose >= GLYCEMIA_THRESHOLDS.fastingGlucose;
+  const randomDiabeticWithHba1c = hba1cDiabetic &&
+    randomGlucose !== null &&
+    randomGlucose >= GLYCEMIA_THRESHOLDS.randomGlucose;
+
+  if (
+    (hba1cDiabetic && (fastingDiabetic || randomDiabeticWithHba1c)) ||
+    (fastingDiabetic && input.separateDayDiabeticTypeConfirmed === true)
+  ) {
+    return { status: 'diabetes', glucoseAbnormality: null, reason: 'criteria_met' };
+  }
+
+  if (hba1cDiabetic || fastingDiabetic) {
+    return { status: 'unresolved', glucoseAbnormality: null, reason: 'diabetic_range_unconfirmed' };
+  }
+
+  const abnormal =
+    (hba1c !== null && hba1c >= LIPID_HISAYAMA_THRESHOLDS.hba1cAbnormal) ||
+    (fastingGlucose !== null && fastingGlucose >= LIPID_HISAYAMA_THRESHOLDS.fastingGlucoseAbnormal);
+
+  if (abnormal) {
+    return { status: 'no_diabetes', glucoseAbnormality: true, reason: 'non_diabetic_glucose_abnormality' };
+  }
+
+  if (hba1c !== null && fastingGlucose !== null) {
+    return { status: 'no_diabetes', glucoseAbnormality: false, reason: 'no_glucose_abnormality' };
+  }
+
+  return { status: 'no_diabetes', glucoseAbnormality: null, reason: 'glucose_score_input_missing' };
+}
+
+function hisayamaSbpPoints(sbp) {
+  if (sbp < 120) return 0;
+  if (sbp < 130) return 1;
+  if (sbp < 140) return 2;
+  if (sbp < 160) return 3;
+  return 4;
+}
+
+function hisayamaLdlPoints(ldl) {
+  if (ldl < 120) return 0;
+  if (ldl < 140) return 1;
+  if (ldl < 160) return 2;
+  return 3;
+}
+
+function hisayamaHdlPoints(hdl) {
+  if (hdl >= 60) return 0;
+  if (hdl >= 40) return 1;
+  return 2;
+}
+
+export function calculateModifiedHisayama(input) {
+  const diabetesState = evaluateLipidDiabetesState(input);
+  if (diabetesState.status === 'diabetes') {
+    return { score: null, points: null, missing: [], status: 'diabetes_bypass' };
+  }
+  if (diabetesState.status === 'unresolved') {
+    return { score: null, points: null, missing: ['diabetes_status'], status: 'unresolved' };
+  }
+
+  const sex = input.sex;
+  const sbp = toNumber(input.sbp);
+  const ldl = toNumber(input.ldl);
+  const hdl = toNumber(input.hdl);
+  const missing = [];
+
+  if (!['male', 'female'].includes(sex)) missing.push('sex');
+  if (sbp === null) missing.push('sbp');
+  if (ldl === null) missing.push('ldl');
+  if (hdl === null) missing.push('hdl');
+  if (diabetesState.glucoseAbnormality === null) missing.push('glucose_abnormality');
+
+  if (missing.length > 0) {
+    return { score: null, points: null, missing, status: 'unresolved' };
+  }
+
+  const points = {
+    sex: sex === 'male' ? 7 : 0,
+    sbp: hisayamaSbpPoints(sbp),
+    glucose: diabetesState.glucoseAbnormality ? 1 : 0,
+    ldl: hisayamaLdlPoints(ldl),
+    hdl: hisayamaHdlPoints(hdl),
+    smoking: input.currentSmoking === true ? 2 : 0,
+  };
+
+  return {
+    score: Object.values(points).reduce((sum, value) => sum + value, 0),
+    points,
+    missing: [],
+    status: 'scored',
+  };
+}
+
+export function classifyModifiedHisayamaRisk(age, score) {
+  const a = toNumber(age);
+  const s = toNumber(score);
+  if (a === null || s === null) return null;
+  if (a < LIPID_HISAYAMA_THRESHOLDS.ageMin || a > LIPID_HISAYAMA_THRESHOLDS.ageMax) return null;
+
+  if (a < 50) return s <= 12 ? 'low' : 'intermediate';
+  if (a < 60) {
+    if (s <= 7) return 'low';
+    if (s <= 18) return 'intermediate';
+    return 'high';
+  }
+  if (a < 70) {
+    if (s <= 1) return 'low';
+    if (s <= 12) return 'intermediate';
+    return 'high';
+  }
+  return s <= 7 ? 'intermediate' : 'high';
+}
+
+function unresolvedLipidRoute(reason, missing = []) {
+  return {
+    id: 'unresolved',
+    bypassReason: null,
+    scoreEligible: false,
+    score: null,
+    points: null,
+    riskClass: null,
+    reason,
+    missing,
+  };
+}
+
+export function evaluateLipidRouting(input) {
+  const knownFh = triStateBoolean(input.knownFh);
+  const familialTypeIII = triStateBoolean(input.familialTypeIII);
+
+  if (knownFh === true) {
+    return {
+      id: 'known_fh',
+      bypassReason: 'familial_hypercholesterolemia',
+      scoreEligible: false,
+      score: null,
+      points: null,
+      riskClass: null,
+    };
+  }
+  if (familialTypeIII === true) {
+    return {
+      id: 'familial_type_iii',
+      bypassReason: 'familial_type_iii_hyperlipidemia',
+      scoreEligible: false,
+      score: null,
+      points: null,
+      riskClass: null,
+    };
+  }
+  if (knownFh === null || familialTypeIII === null) {
+    return unresolvedLipidRoute('familial_dyslipidemia_status', ['known_fh_or_type_iii']);
+  }
+
+  const secondaryPrevention = triStateBoolean(input.qualifyingSecondaryPrevention);
+  if (secondaryPrevention === true) {
+    return {
+      id: 'secondary_prevention',
+      bypassReason: 'qualifying_secondary_prevention',
+      scoreEligible: false,
+      score: null,
+      points: null,
+      riskClass: null,
+    };
+  }
+  if (secondaryPrevention === null) {
+    return unresolvedLipidRoute('secondary_prevention_status', ['qualifying_secondary_prevention']);
+  }
+
+  const diabetesState = evaluateLipidDiabetesState(input);
+  if (diabetesState.status === 'unresolved') {
+    return unresolvedLipidRoute('diabetes_status', ['diabetes_confirmation']);
+  }
+
+  const diagnosedCkd = triStateBoolean(input.diagnosedCkd);
+  const pad = triStateBoolean(input.pad);
+  if (diagnosedCkd === null || pad === null) {
+    const missing = [];
+    if (diagnosedCkd === null) missing.push('diagnosed_ckd');
+    if (pad === null) missing.push('pad');
+    return unresolvedLipidRoute('primary_high_risk_status', missing);
+  }
+
+  const highRiskReasons = [];
+  if (diabetesState.status === 'diabetes') highRiskReasons.push('diabetes');
+  if (diagnosedCkd) highRiskReasons.push('ckd');
+  if (pad) highRiskReasons.push('pad');
+
+  if (highRiskReasons.length > 0) {
+    return {
+      id: 'primary_high_risk',
+      bypassReason: highRiskReasons[0],
+      highRiskReasons,
+      scoreEligible: false,
+      score: null,
+      points: null,
+      riskClass: 'high',
+    };
+  }
+
+  const age = toNumber(input.age);
+  if (age === null) return unresolvedLipidRoute('age', ['age']);
+  if (age < LIPID_HISAYAMA_THRESHOLDS.ageMin || age > LIPID_HISAYAMA_THRESHOLDS.ageMax) {
+    return {
+      id: 'out_of_score_range',
+      bypassReason: age < LIPID_HISAYAMA_THRESHOLDS.ageMin ? 'age_under_40' : 'age_80_or_older',
+      scoreEligible: false,
+      score: null,
+      points: null,
+      riskClass: null,
+    };
+  }
+
+  const scored = calculateModifiedHisayama(input);
+  if (scored.status !== 'scored') {
+    return unresolvedLipidRoute(
+      scored.missing.includes('diabetes_status') ? 'diabetes_status' : 'score_input',
+      scored.missing,
+    );
+  }
+
+  return {
+    id: 'modified_hisayama',
+    bypassReason: null,
+    scoreEligible: true,
+    score: scored.score,
+    points: scored.points,
+    riskClass: classifyModifiedHisayamaRisk(age, scored.score),
+  };
+}
+
 export function evaluateUricAcid(input) {
   const ua = toNumber(input.uricAcid);
   const treated = Boolean(input.urateTreatment);
