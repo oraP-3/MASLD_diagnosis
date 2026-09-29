@@ -251,6 +251,25 @@ For CKD:
 - the 2026 Japanese Society of Nephrology statement aligns with an overall target of office <130/80 and home <125/75
 - in non-diabetic proteinuria-negative CKD, a cautious intermediate target of office <140/90 / home <135/85 may be used while titrating according to tolerance
 
+### Shared CKD input contract
+
+CKD is a cross-domain input in this application, not a BP-only field.
+
+Shared baseline inputs:
+- eGFR: numeric current renal-function value
+- CKD diagnosed / established: yes / no
+
+Do not infer established CKD from one isolated eGFR value alone.
+
+CKD diagnosis requires chronicity: kidney damage and/or GFR <60 mL/min/1.73m² persisting for more than 3 months. eGFR >=60 does not exclude CKD when persistent kidney-damage markers are present.
+
+Why this is shared:
+- BP: proteinuric CKD can alter JSH cardiovascular-risk stratification
+- lipids: CKD is a high-risk condition and will bypass the modified-Hisayama branch in Phase D
+- uric acid: CKD / renal impairment is a relevant complication in the UA 8.0–8.9 mg/dL treatment-consideration branch
+
+Do not make proteinuria a routine baseline input. Keep it conditional within the BP workflow when it can change the current JSH risk/timing branch.
+
 ### Proteinuria — when it is decision-relevant
 
 Proteinuria is **not** needed merely to choose the default BP target.
