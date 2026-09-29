@@ -673,7 +673,7 @@ export function summarizeBloodPressure(input) {
 
     case 'treated_within_target':
       actionTitle = '降圧目標内';
-      actionDetail = '目標 <130/80 mmHg。現治療を継続。';
+      actionDetail = '目標 <130/80 mmHg。現治療の継続・経過観察を検討。';
       actionTone = 'good';
       break;
 
@@ -685,7 +685,7 @@ export function summarizeBloodPressure(input) {
 
     case 'prompt_confirmation_high_risk':
       actionTitle = '高リスク背景あり — 速やかに持続確認';
-      actionDetail = '家庭/別日血圧で持続確認。確認後は薬物療法を速やかに検討。';
+      actionDetail = '家庭/別日血圧で持続確認。持続なら薬物療法を速やかに検討。';
       actionTone = 'bad';
       break;
 
@@ -731,7 +731,7 @@ export function summarizeBloodPressure(input) {
           ? '高リスク背景あり — 血圧高値の持続状況を確認'
           : '血圧高値の持続状況を確認';
         if (result.category.id === 'grade1') {
-          actionDetail = '家庭/別日血圧で持続確認。持続時は約1か月で再評価。';
+          actionDetail = '生活習慣改善。持続なら約1か月で再評価し、薬物療法を検討。';
         } else if (result.riskLevel === 'high') {
           actionDetail = '家庭/別日血圧で持続確認。持続時は約1か月で再評価・薬物療法を考慮。';
         } else {
@@ -742,7 +742,7 @@ export function summarizeBloodPressure(input) {
           ? '高リスク背景あり — 持続確認を優先'
           : '血圧高値の持続確認を優先';
         if (result.category.id === 'grade1') {
-          actionDetail = '未確認。家庭/別日血圧で持続確認し、持続時は約1か月で再評価。';
+          actionDetail = '生活習慣改善。持続確認後、約1か月で再評価し薬物療法を検討。';
         } else if (result.riskLevel === 'high') {
           actionDetail = '未確認。持続時は約1か月で再評価し、薬物療法を考慮。';
         } else {
