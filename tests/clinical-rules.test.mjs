@@ -350,7 +350,7 @@ test('C3 grade-III action overrides routine persistence and treatment context',(
   const treated=summarizeBloodPressure({...bpBase,sbp:182,dbp:112,antihypertensiveTreatment:true});
   assert.equal(untreated.actionTitle,'速やかな臨床評価が必要');
   assert.equal(treated.actionTitle,'速やかな臨床評価が必要');
-  assert.match(untreated.actionDetail,/確認待ちにはせず/);
+  assert.match(untreated.actionDetail,/家庭血圧待ちにせず/);
 });
 
 test('C3 high risk from three routine factors names the concrete factors',()=>{
@@ -370,11 +370,12 @@ test('C3 unresolved risk names decision-relevant missing information',()=>{
   assert.equal(r.actionTitle,'追加情報で対応を確定');
 });
 
-test('C3 normal BP does not expose JSH risk jargon or unnecessary action',()=>{
+test('C4 normal BP hides the redundant action card and explanatory copy',()=>{
   const r=summarizeBloodPressure({...bpBase,sbp:118,dbp:76});
   assert.equal(r.category.id,'normal');
-  assert.equal(r.actionTitle,'現時点では追加の降圧治療判定なし');
-  assert.doesNotMatch(r.classificationDetail,/第2層|Category|layer/i);
+  assert.equal(r.showAction,false);
+  assert.equal(r.actionTitle,'');
+  assert.equal(r.classificationDetail,'');
 });
 
 
@@ -392,7 +393,7 @@ test('C3 treated patients do not surface hidden untreated-risk missing data',()=
   });
   assert.equal(r.timingClass,'treated_above_target');
   assert.deepEqual(r.missing,[]);
-  assert.match(r.classificationDetail,/降圧薬治療中/);
+  assert.equal(r.classificationDetail,'');
   assert.doesNotMatch(r.classificationDetail,/リスク判定が変わる/);
 });
 
@@ -411,7 +412,7 @@ test('C3 grade-II does not request risk-only missing data when action timing is 
   assert.equal(r.category.id,'grade2');
   assert.deepEqual(r.missing,['血圧高値の持続確認']);
   assert.doesNotMatch(r.classificationDetail,/LDL-C|脳・心血管疾患既往|心房細動/);
-  assert.match(r.classificationDetail,/対応タイミングは変わりません/);
+  assert.equal(r.classificationDetail,'');
 });
 
 
@@ -436,4 +437,44 @@ test('C3 unconfirmed high-risk elevated BP retains one-month reassessment and dr
   assert.match(explicitlyUnconfirmed.actionTitle,/高リスク背景あり/);
   assert.match(explicitlyUnconfirmed.actionDetail,/約1か月/);
   assert.match(explicitlyUnconfirmed.actionDetail,/薬物療法を考慮/);
+});
+
+
+test('C4 elevated-normal BP also hides the action card',()=>{
+  const r=summarizeBloodPressure({...bpBase,sbp:125,dbp:75});
+  assert.equal(r.category.id,'elevated_normal');
+  assert.equal(r.showAction,false);
+  assert.equal(r.classificationDetail,'');
+});
+
+test('C4 unresolved elevated BP does not enumerate all missing fields in result copy',()=>{
+  const r=summarizeBloodPressure({
+    ...bpBase,
+    age:'',
+    sex:'',
+    ldl:'',
+    hdl:'',
+    tg:'',
+    cvdHistory:null,
+    atrialFibrillation:null,
+    bpPersistence:'',
+  });
+  assert.equal(r.category.id,'elevated');
+  assert.equal(r.showAction,true);
+  assert.equal(r.classificationDetail,'背景情報の確認でリスク判定が変わります。');
+  assert.doesNotMatch(r.actionDetail,/年齢|性別|LDL-C|HDL-C|脳・心血管疾患既往|心房細動/);
+});
+
+test('C4 action details stay concise for representative branches',()=>{
+  const samples=[
+    summarizeBloodPressure({...bpBase,bpPersistence:'home',cvdHistory:false,atrialFibrillation:false}),
+    summarizeBloodPressure({...bpBase,diagnosedDiabetes:true,bpPersistence:'home',cvdHistory:null,atrialFibrillation:null}),
+    summarizeBloodPressure({...bpBase,sbp:145,dbp:92,diagnosedDiabetes:true,bpPersistence:'home',cvdHistory:null,atrialFibrillation:null}),
+    summarizeBloodPressure({...bpBase,sbp:165,dbp:100,bpPersistence:'home'}),
+    summarizeBloodPressure({...bpBase,sbp:182,dbp:112}),
+    summarizeBloodPressure({...bpBase,sbp:135,dbp:82,antihypertensiveTreatment:true}),
+  ];
+  for(const r of samples){
+    assert.ok(r.actionDetail.length <= 55, `too long: ${r.actionDetail}`);
+  }
 });
