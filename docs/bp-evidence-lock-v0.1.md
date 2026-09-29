@@ -194,17 +194,16 @@ Therefore proteinuria is not required merely to choose the final default BP targ
 
 CKD is not owned by the BP engine alone.
 
-Use two shared baseline fields in the application:
-- current eGFR as a numeric value
+Use one shared baseline field in the application:
 - CKD diagnosed / established as a yes/no flag
 
 Rationale:
-- CKD diagnosis is not equivalent to one eGFR measurement. Current Japanese CKD guidance defines CKD by kidney damage and/or GFR <60 mL/min/1.73m² persisting for more than 3 months.
-- CKD can exist with eGFR >=60 when persistent kidney-damage markers are present.
-- The same CKD state is needed later by the lipid engine and is also relevant to the uric-acid complication branch.
+- CKD status is needed by the BP engine, later lipid routing, and the uric-acid complication branch.
+- De-novo CKD diagnosis would require renal-function / kidney-damage findings plus chronicity assessment and is outside the scope of this MASLD treatment-support tool.
+- Numeric eGFR therefore should not be collected solely to reconstruct CKD diagnosis.
 
 Therefore:
-- do not automatically switch `CKD diagnosed` on from one eGFR <60 result;
+- treat CKD as pre-existing clinician knowledge;
 - do not hide CKD entirely inside the hypertension section;
 - do not require proteinuria as a universal baseline field.
 
