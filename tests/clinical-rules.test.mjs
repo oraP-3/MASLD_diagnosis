@@ -649,3 +649,16 @@ test('D2 representative eligible patient returns score and age-specific risk cla
   assert.equal(r.score,16);
   assert.equal(r.riskClass,'intermediate');
 });
+
+
+test('D2 broad BP CVD history is not reused as lipid secondary prevention',()=>{
+  const r=evaluateLipidRouting({...lipidBase,cvdHistory:true,qualifyingSecondaryPrevention:false});
+  assert.equal(r.id,'modified_hisayama');
+});
+
+test('D2 DBP and antihypertensive treatment do not add modified Hisayama points',()=>{
+  const base=calculateModifiedHisayama(lipidBase);
+  const changed=calculateModifiedHisayama({...lipidBase,dbp:120,antihypertensiveTreatment:true});
+  assert.equal(changed.score,base.score);
+  assert.deepEqual(changed.points,base.points);
+});
