@@ -624,6 +624,7 @@ export function summarizeBloodPressure(input) {
       actionTitle: '入力待ち',
       actionDetail: '血圧分類後に次の対応を表示します。',
       actionTone: 'neutral',
+      showAction: false,
       missing: [],
     };
   }
@@ -632,39 +633,29 @@ export function summarizeBloodPressure(input) {
   const highRiskLabels = bpHighRiskLabels(input, result, layer2Labels);
   const missing = bpMissingLabels(input, result);
 
-  let classificationDetail = '現在の診察室血圧分類です。';
-  if (input.antihypertensiveTreatment) {
-    classificationDetail = '降圧薬治療中の現在の診察室血圧です。治療目標との比較は「次の対応」に表示します。';
-  } else if (result.riskLevel === 'high') {
+  let classificationDetail = '';
+  if (!input.antihypertensiveTreatment && result.riskLevel === 'high') {
     if (highRiskLabels.length) {
-      classificationDetail = `${highRiskLabels.join('、')}を伴うため高リスクです。`;
+      classificationDetail = `${highRiskLabels.join('・')}：高リスク。`;
     } else if (result.category.id === 'grade3') {
-      classificationDetail = 'III度高血圧域のため高リスクです。';
+      classificationDetail = 'III度高血圧域：高リスク。';
     } else if (result.category.id === 'grade2' && layer2Labels.length) {
-      classificationDetail = `II度高血圧に${layer2Labels.join('、')}を伴うため高リスクです。`;
+      classificationDetail = `${layer2Labels.join('・')}：高リスク。`;
     } else {
-      classificationDetail = '現在の血圧域と背景因子から高リスクです。';
+      classificationDetail = '高リスク。';
     }
-  } else if (result.riskLevel === 'moderate') {
-    if (result.category.id === 'grade2' && !layer2Labels.length) {
-      classificationDetail = 'II度高血圧域です。追加背景によるリスク層別化にかかわらず、対応は速やかな再確認・臨床評価の分岐です。';
-    } else if (layer2Labels.length) {
-      classificationDetail = `${layer2Labels.join('、')}を伴うため中等リスクです。`;
-    } else {
-      classificationDetail = '現在の血圧域と背景因子から中等リスクです。';
-    }
-  } else if (result.riskLevel === 'low') {
-    classificationDetail = '治療タイミングを早める追加の高リスク背景は現時点で確認されていません。';
-  } else if (result.riskLevel === 'unresolved') {
-    if (result.category.id === 'grade2') {
-      classificationDetail = '追加背景によりリスク層別化は変わり得ますが、今回の対応タイミングは変わりません。';
-    } else {
-      classificationDetail = missing.length
-        ? `${missing.filter((item) => item !== '血圧高値の持続確認').join('、') || '追加情報'}の確認でリスク判定が変わる可能性があります。`
-        : '追加情報によりリスク判定が変わる可能性があります。';
-    }
-  } else {
-    classificationDetail = 'この血圧域では治療タイミング用の追加リスク層別化は行いません。';
+  } else if (!input.antihypertensiveTreatment && result.riskLevel === 'moderate') {
+    classificationDetail = layer2Labels.length
+      ? `${layer2Labels.join('・')}：中等リスク。`
+      : '中等リスク。';
+  } else if (!input.antihypertensiveTreatment && result.riskLevel === 'low') {
+    classificationDetail = '追加高リスク背景なし。';
+  } else if (
+    !input.antihypertensiveTreatment &&
+    result.riskLevel === 'unresolved' &&
+    ['elevated', 'grade1'].includes(result.category.id)
+  ) {
+    classificationDetail = '背景情報の確認でリスク判定が変わります。';
   }
 
   const persistenceExplicitlyUnconfirmed = input.bpPersistence === 'not_confirmed';
@@ -676,63 +667,61 @@ export function summarizeBloodPressure(input) {
   switch (result.timingClass) {
     case 'urgent_assessment':
       actionTitle = '速やかな臨床評価が必要';
-      actionDetail = 'III度高血圧域です。通常の家庭血圧確認待ちにはせず、症状を含め速やかに臨床評価します。';
+      actionDetail = 'III度高血圧域。家庭血圧待ちにせず速やかに臨床評価。';
       actionTone = 'bad';
       break;
 
     case 'treated_within_target':
       actionTitle = '降圧目標内';
-      actionDetail = '診察室血圧は一般的な目標 <130/80 mmHg の範囲です。現治療の継続・経過観察を検討します。';
+      actionDetail = '目標 <130/80 mmHg。現治療の継続・経過観察を検討。';
       actionTone = 'good';
       break;
 
     case 'treated_above_target':
       actionTitle = result.category.id === 'grade2' ? '目標超過 — 早めに治療内容を再評価' : '目標超過 — 治療内容を再評価';
-      actionDetail = '服薬状況、忍容性、家庭血圧を確認し、必要に応じて治療強化を検討します。';
+      actionDetail = '服薬・忍容性・家庭血圧を確認し、必要なら治療強化を検討。';
       actionTone = result.category.id === 'grade2' ? 'bad' : 'warn';
       break;
 
     case 'prompt_confirmation_high_risk':
       actionTitle = '高リスク背景あり — 速やかに持続確認';
-      actionDetail = '家庭血圧または別日の診察室血圧で持続を確認します。持続性高血圧が確認されれば、生活習慣改善とともに薬物療法を速やかに検討します。';
+      actionDetail = '家庭/別日血圧で持続確認。持続なら薬物療法を速やかに検討。';
       actionTone = 'bad';
       break;
 
     case 'prompt_confirmation':
       actionTitle = '速やかに再確認・臨床評価';
-      actionDetail = '長期の生活習慣改善のみで経過観察せず、再測定や家庭血圧で持続を確認します。持続性高血圧が確認されれば薬物療法を速やかに検討します。';
+      actionDetail = '再測定・家庭血圧で速やかに持続確認。持続なら薬物療法を検討。';
       actionTone = 'bad';
       break;
 
     case 'prompt_pharmacologic_consideration':
       actionTitle = '薬物療法を速やかに検討';
-      actionDetail = '持続性高血圧が確認されています。生活習慣改善とともに薬物療法を速やかに検討します。';
+      actionDetail = '持続性高血圧を確認済み。生活習慣改善と薬物療法を検討。';
       actionTone = 'bad';
       break;
 
     case 'short_interval_reassessment_with_pharmacologic_consideration':
       actionTitle = '生活習慣改善＋約1か月で再評価';
-      actionDetail = '高リスク背景を伴う持続性の高値血圧です。約1か月で再評価し、なお目標を上回る場合は薬物療法を考慮します。';
+      actionDetail = '約1か月で再評価。目標超過が続けば薬物療法を考慮。';
       actionTone = 'warn';
       break;
 
     case 'short_interval_reassessment':
       actionTitle = '生活習慣改善＋約1か月で再評価';
-      actionDetail = '持続性のI度高血圧です。約1か月以内に再評価し、目標未達が続く場合は薬物療法を開始・考慮します。';
+      actionDetail = '約1か月で再評価。目標未達が続けば薬物療法を検討。';
       actionTone = 'warn';
       break;
 
     case 'lifestyle_planned_reassessment':
       actionTitle = '生活習慣改善＋計画的再評価';
-      actionDetail = '持続性の高値血圧ですが、現時点では自動的な即時薬物療法開始の分岐ではありません。生活習慣改善と計画的な再評価を行います。';
+      actionDetail = '生活習慣改善を行い、計画的に再評価。';
       actionTone = 'warn';
       break;
 
     case 'needs_risk_resolution':
       actionTitle = '追加情報で対応を確定';
-      actionDetail = missing.length
-        ? `${missing.join('、')}を確認すると、再評価時期や薬物療法を考慮するタイミングを確定できます。`
-        : '追加のリスク情報を確認すると対応を確定できます。';
+      actionDetail = '背景情報を確認して対応を確定。';
       actionTone = 'warn';
       break;
 
@@ -742,38 +731,34 @@ export function summarizeBloodPressure(input) {
           ? '高リスク背景あり — 血圧高値の持続状況を確認'
           : '血圧高値の持続状況を確認';
         if (result.category.id === 'grade1') {
-          actionDetail = '家庭血圧または別日の診察室血圧で持続を確認します。生活習慣改善を行い、持続する場合は約1か月で再評価し薬物療法を検討します。';
+          actionDetail = '生活習慣改善。持続なら約1か月で再評価し、薬物療法を検討。';
         } else if (result.riskLevel === 'high') {
-          actionDetail = '家庭血圧または別日の診察室血圧で持続を確認し、生活習慣改善を行います。高値が持続する場合は約1か月で再評価し、なお目標を上回る場合は薬物療法を考慮します。';
+          actionDetail = '家庭/別日血圧で持続確認。持続時は約1か月で再評価・薬物療法を考慮。';
         } else {
-          actionDetail = '家庭血圧または別日の診察室血圧で持続を確認し、生活習慣改善とその後の再評価につなげます。';
+          actionDetail = '家庭/別日血圧で持続確認。持続時は生活習慣改善・再評価。';
         }
       } else if (persistenceExplicitlyUnconfirmed) {
         actionTitle = result.riskLevel === 'high'
           ? '高リスク背景あり — 持続確認を優先'
           : '血圧高値の持続確認を優先';
         if (result.category.id === 'grade1') {
-          actionDetail = '現時点では持続性高血圧は未確認です。家庭血圧または別日の診察室血圧で確認し、持続する場合は約1か月で再評価し薬物療法を検討します。';
+          actionDetail = '生活習慣改善。持続確認後、約1か月で再評価し薬物療法を検討。';
         } else if (result.riskLevel === 'high') {
-          actionDetail = '現時点では持続性高値血圧は未確認です。家庭血圧または別日の診察室血圧で確認し、高値が持続する場合は約1か月で再評価し、なお目標を上回る場合は薬物療法を考慮します。';
+          actionDetail = '未確認。持続時は約1か月で再評価し、薬物療法を考慮。';
         } else {
-          actionDetail = '現時点では持続性高値血圧は未確認です。家庭血圧または別日の診察室血圧で確認します。';
+          actionDetail = '未確認。家庭/別日血圧で持続確認。';
         }
       } else {
         actionTitle = '血圧高値の持続確認を優先';
-        actionDetail = '家庭血圧または別日の診察室血圧で持続を確認します。';
-      }
-      if (missing.some((item) => item !== '血圧高値の持続確認')) {
-        const riskMissing = missing.filter((item) => item !== '血圧高値の持続確認');
-        actionDetail += ` あわせて${riskMissing.join('、')}を確認するとリスク判定が確定します。`;
+        actionDetail = '家庭/別日血圧で持続確認。';
       }
       actionTone = 'warn';
       break;
 
     case 'no_hypertension_action':
     default:
-      actionTitle = '現時点では追加の降圧治療判定なし';
-      actionDetail = '現在の診察室血圧分類では、追加の治療タイミング分岐には入りません。';
+      actionTitle = '';
+      actionDetail = '';
       actionTone = 'good';
       break;
   }
@@ -784,6 +769,7 @@ export function summarizeBloodPressure(input) {
     actionTitle,
     actionDetail,
     actionTone,
+    showAction: result.timingClass !== 'no_hypertension_action',
     missing,
   };
 }
