@@ -1321,20 +1321,29 @@ export function summarizeLipids(input) {
   let tone = 'neutral';
 
   if (targetResult.status === 'target_set') {
-    title = `LDL-C目標 <${targetResult.target} mg/dL`;
+    const diabetesStrict = targetResult.targetReason === 'diabetes_strict';
+    title = diabetesStrict
+      ? `LDL-C <${targetResult.target} mg/dLへの厳格化を考慮`
+      : `LDL-C目標 <${targetResult.target} mg/dL`;
     const valueText = targetResult.ldl === null
-      ? 'LDL-Cを入力すると達成状況を表示します。'
-      : targetResult.atTarget
-        ? `現在 ${targetResult.ldl} mg/dLで目標内です。`
-        : `現在 ${targetResult.ldl} mg/dLで目標以上です。`;
+      ? 'LDL-Cを入力すると現在値との位置づけを表示します。'
+      : diabetesStrict
+        ? targetResult.atTarget
+          ? `現在 ${targetResult.ldl} mg/dLで、考慮する厳格化目標の範囲内です。`
+          : `現在 ${targetResult.ldl} mg/dLです。`
+        : targetResult.atTarget
+          ? `現在 ${targetResult.ldl} mg/dLで目標内です。`
+          : `現在 ${targetResult.ldl} mg/dLで目標以上です。`;
     const treatmentText = targetResult.ldl !== null && !targetResult.atTarget
       ? input.lipidTreatment
         ? ' 脂質低下療法中のため、治療強化の要否を臨床的に検討します。'
-        : ' 生活習慣介入と薬物療法の要否を臨床的に検討します。'
+        : ' 目標達成に向けた介入の要否を臨床的に検討します。'
       : input.lipidTreatment
         ? ' 脂質低下療法中です。'
         : '';
-    detail = `${reasonLabel}。 ${valueText}${treatmentText}`;
+    detail = diabetesStrict
+      ? `${reasonLabel}では基本目標 <120 mg/dLに加えて <100 mg/dLへの厳格化を考慮します。 ${valueText}${treatmentText}`
+      : `${reasonLabel}。 ${valueText}${treatmentText}`;
     if (toNumber(input.age) !== null && toNumber(input.age) >= 80) {
       detail += ' 80歳以上では全身状態・フレイル等を踏まえて管理目標を個別化します。';
     }
