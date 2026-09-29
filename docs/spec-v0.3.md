@@ -346,35 +346,81 @@ C2 should implement pure rules for:
 
 ## 8. Logic 3 — Lipids
 
-Decision order:
+Evidence lock: see `docs/lipid-evidence-lock-v0.1.md`.
 
-1. secondary prevention?
-2. if primary prevention: diabetes / CKD / PAD?
-3. otherwise: modified Hisayama risk score when applicable
+### Decision order
+
+1. known FH / familial type III hyperlipidemia -> general flowchart not used
+2. qualifying secondary prevention?
+3. if primary prevention: diabetes / CKD / PAD?
+4. otherwise, if age 40–79: modified Hisayama
+5. age <40 or >=80: do not force a modified-Hisayama risk class
+
+Do not reuse the broad BP `cvdHistory` flag for lipid secondary prevention. Lipid secondary prevention requires a specific history of:
+- coronary artery disease, or
+- atherothrombotic cerebral infarction / other cerebral infarction with qualifying clear atheroma
 
 ### Modified Hisayama
 
 Use only when:
 - age 40–79
-- not secondary prevention
+- not qualifying secondary prevention
 - no diabetes
-- no CKD
+- no established CKD
 - no PAD
+- no known FH / familial type III branch
 
-Inputs are derived from existing data:
-- sex
-- age
-- SBP
-- glucose abnormality
-- LDL-C
-- HDL-C
-- current smoking
+Points:
 
-For this private tool, define non-diabetic glucose abnormality pragmatically as:
+- sex:
+  - female 0
+  - male 7
+- SBP:
+  - <120 -> 0
+  - 120–129 -> 1
+  - 130–139 -> 2
+  - 140–159 -> 3
+  - >=160 -> 4
+- non-diabetic glucose abnormality:
+  - absent 0
+  - present 1
+- LDL-C:
+  - <120 -> 0
+  - 120–139 -> 1
+  - 140–159 -> 2
+  - >=160 -> 3
+- HDL-C:
+  - >=60 -> 0
+  - 40–59 -> 1
+  - <40 -> 2
+- current smoking:
+  - no 0
+  - yes 2
+
+Former smoking is scored as no current smoking.
+
+Antihypertensive treatment does not add points. Do not invent a treatment correction.
+
+Operational private-tool proxy for the non-diabetic glucose-abnormality point:
+- no established diabetes
 - HbA1c 5.7–6.4%, or
-- FPG 100–125 mg/dL
+- fasting glucose 100–125 mg/dL
 
-Diagnosed diabetes bypasses the score and enters the diabetes / high-risk branch.
+If diabetes diagnostic-range testing remains unresolved, do not downgrade it to the 1-point glucose-abnormality state; keep lipid routing unresolved until the diabetes branch is clinically settled.
+
+Risk class from total score:
+
+| Age | Low | Intermediate | High |
+| --- | --- | --- | --- |
+| 40–49 | 0–12 | 13–19 | not reached |
+| 50–59 | 0–7 | 8–18 | 19 |
+| 60–69 | 0–1 | 2–12 | 13–19 |
+| 70–79 | none | 0–7 | 8–19 |
+
+Corresponding 10-year ASCVD-risk classes:
+- low: <2%
+- intermediate: >=2% and <10%
+- high: >=10%
 
 ### LDL-C targets
 
@@ -383,21 +429,75 @@ Primary prevention:
 - intermediate risk: <140 mg/dL
 - high risk: <120 mg/dL
 
-Diabetes:
+Diabetes primary prevention:
 - generally <120 mg/dL
-- consider <100 mg/dL when PAD, diabetic microvascular disease, or current smoking is present
+- consider <100 mg/dL when any of:
+  - PAD
+  - diabetic microvascular disease: retinopathy, nephropathy, or neuropathy
+  - current smoking
+
+Do not infer diabetic nephropathy from a generic `CKD diagnosed` flag.
+
+CKD primary prevention:
+- <120 mg/dL
+
+PAD primary prevention:
+- <120 mg/dL
+- if diabetes is also present, PAD is a reason to consider the diabetes target <100 mg/dL
 
 Secondary prevention:
 - generally <100 mg/dL
-- stricter targets may apply in higher-risk secondary-prevention settings
+- consider <70 mg/dL when any of:
+  - acute coronary syndrome
+  - familial hypercholesterolemia
+  - diabetes
+  - both coronary artery disease and qualifying atherothrombotic cerebral infarction
 
-Do not force all secondary-prevention subtyping during initial entry. Ask only if a stricter target would change the displayed conclusion.
+Known FH:
+- primary prevention <100 mg/dL
+- secondary prevention <70 mg/dL
+
+Primary-prevention LDL-C >=180 mg/dL:
+- pharmacologic treatment may be considered regardless of ordinary risk category
+- consider FH
+- this is an action / warning override, not a new risk-category target by itself
+
+### Age outside the score
+
+Age <40:
+- do not assign a modified-Hisayama absolute-risk class
+- emphasize lifestyle / lifetime-risk context
+- LDL-C >=180 mg/dL should trigger FH consideration
+
+Age >=80:
+- do not assign a modified-Hisayama risk class
+- primary-prevention lipid management should be individualized rather than mechanically tied to the 40–79 score table
 
 ### Triglycerides
 
-Do not ask fasting status routinely.
+JAS targets:
+- fasting TG <150 mg/dL
+- casual / nonfasting TG <175 mg/dL
+- HDL-C >=40 mg/dL
 
-If TG is in a range where fasting vs nonfasting status changes classification, then ask fasting status conditionally.
+For lipid management, do **not** ask fasting status merely because TG is 150–174 mg/dL.
+
+Operational rule:
+- if fasting is explicitly known -> use the fasting target
+- if fasting status is unknown -> treat as casual / `随時` and use <175 mg/dL
+
+This is intentionally separate from the Phase-C BP dyslipidemia-factor logic, where fasting status can be decision-relevant to JSH risk classification.
+
+### Conditional lipid-specific inputs
+
+Only ask when they can change routing or target:
+- qualifying CAD / atherothrombotic cerebral infarction history
+- PAD
+- known FH when relevant
+- ACS in secondary prevention
+- diabetic microvascular disease when diabetes is present and the answer can tighten <120 to <100
+
+Do not ask all of these routinely.
 
 ## 9. Logic 4 — Glycemia
 
