@@ -267,3 +267,38 @@ test('confirmed high-risk elevated BP preserves both short-interval reassessment
   assert.equal(r.riskLevel,'high');
   assert.equal(r.timingClass,'short_interval_reassessment_with_pharmacologic_consideration');
 });
+
+
+test('answered CVD and AF questions remain visible after proteinuria makes risk high',()=>{
+  const before=evaluateBloodPressure({
+    ...bpBase,
+    diagnosedCkd:true,
+    cvdHistory:false,
+    atrialFibrillation:false,
+    proteinuriaPresent:null,
+  });
+  assert.equal(before.showRiskBackground,true);
+  assert.equal(before.showProteinuriaQuestion,true);
+
+  const after=evaluateBloodPressure({
+    ...bpBase,
+    diagnosedCkd:true,
+    cvdHistory:false,
+    atrialFibrillation:false,
+    proteinuriaPresent:true,
+  });
+  assert.equal(after.riskLevel,'high');
+  assert.equal(after.showRiskBackground,true);
+  assert.equal(after.showProteinuriaQuestion,true);
+});
+
+test('CVD and AF stay hidden when diabetes is already known high risk and they were never answered',()=>{
+  const r=evaluateBloodPressure({
+    ...bpBase,
+    diagnosedDiabetes:true,
+    cvdHistory:null,
+    atrialFibrillation:null,
+  });
+  assert.equal(r.riskLevel,'high');
+  assert.equal(r.showRiskBackground,false);
+});
