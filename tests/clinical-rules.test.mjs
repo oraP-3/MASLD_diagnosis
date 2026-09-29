@@ -475,6 +475,6 @@ test('C4 action details stay concise for representative branches',()=>{
     summarizeBloodPressure({...bpBase,sbp:135,dbp:82,antihypertensiveTreatment:true}),
   ];
   for(const r of samples){
-    assert.ok(r.actionDetail.length <= 55, `too long: ${r.actionDetail}`);
+    assert.ok(r.actionDetail.length <= 40, `too long: ${r.actionDetail}`);
   }
 });
