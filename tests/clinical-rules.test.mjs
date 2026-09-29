@@ -326,7 +326,7 @@ test('C3 grade-I high risk requires prompt confirmation before drug-start wordin
   const before=summarizeBloodPressure({...bpBase,sbp:145,dbp:92,diagnosedDiabetes:true,bpPersistence:'',cvdHistory:null,atrialFibrillation:null});
   const after=summarizeBloodPressure({...bpBase,sbp:145,dbp:92,diagnosedDiabetes:true,bpPersistence:'home',cvdHistory:null,atrialFibrillation:null});
   assert.match(before.actionTitle,/速やかに持続確認/);
-  assert.match(before.actionDetail,/持続確認/);
+  assert.match(before.actionDetail,/持続なら.*薬物療法/);
   assert.equal(after.actionTitle,'薬物療法を速やかに検討');
 });
 
@@ -335,6 +335,7 @@ test('C3 treated BP uses target and intensification language rather than treatme
   const above=summarizeBloodPressure({...bpBase,sbp:135,dbp:82,antihypertensiveTreatment:true});
   assert.equal(within.actionTitle,'降圧目標内');
   assert.match(within.actionDetail,/<130\/80/);
+  assert.match(within.actionDetail,/継続・経過観察を検討/);
   assert.match(above.actionTitle,/治療内容を再評価/);
   assert.match(above.actionDetail,/治療強化/);
   assert.doesNotMatch(above.actionDetail,/治療を開始/);
@@ -477,4 +478,22 @@ test('C4 action details stay concise for representative branches',()=>{
   for(const r of samples){
     assert.ok(r.actionDetail.length <= 40, `too long: ${r.actionDetail}`);
   }
+});
+
+
+test('C4 unconfirmed low-risk grade-I keeps lifestyle, reassessment, and conditional medication guidance',()=>{
+  const r=summarizeBloodPressure({
+    ...bpBase,
+    sbp:145,
+    dbp:92,
+    cvdHistory:false,
+    atrialFibrillation:false,
+    bpPersistence:'',
+  });
+  assert.equal(r.riskLevel,'low');
+  assert.equal(r.timingClass,'needs_confirmation');
+  assert.match(r.actionDetail,/生活習慣改善/);
+  assert.match(r.actionDetail,/約1か月/);
+  assert.match(r.actionDetail,/薬物療法を検討/);
+  assert.ok(r.actionDetail.length <= 40);
 });
