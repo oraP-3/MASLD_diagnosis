@@ -132,20 +132,25 @@ Core state groups:
 - ldl
 - hdl
 - tg
-- egfr
 - uric_acid
 
 ### Existing diagnosis / treatment
 - antihypertensive_treatment
 - diagnosed_diabetes
+- diagnosed_ckd
 - lipid_treatment
 - urate_treatment
+
+### CKD scope note
+
+- CKD is treated as pre-existing clinician knowledge via `diagnosed_ckd`.
+- Do not collect numeric eGFR solely to reconstruct CKD diagnosis.
+- De-novo CKD diagnosis is outside this application's scope.
 
 ### Conditional background
 Only instantiate / display when a branch requires it:
 - cardiovascular_history
 - relevant_secondary_prevention_subtype
-- ckd
 - pad
 - atrial_fibrillation
 - proteinuria
