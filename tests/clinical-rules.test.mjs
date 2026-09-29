@@ -413,3 +413,27 @@ test('C3 grade-II does not request risk-only missing data when action timing is 
   assert.doesNotMatch(r.classificationDetail,/LDL-C|脳・心血管疾患既往|心房細動/);
   assert.match(r.classificationDetail,/対応タイミングは変わりません/);
 });
+
+
+test('C3 unconfirmed high-risk elevated BP retains one-month reassessment and drug-consideration guidance',()=>{
+  const notEntered=summarizeBloodPressure({
+    ...bpBase,
+    diagnosedDiabetes:true,
+    bpPersistence:'',
+    cvdHistory:null,
+    atrialFibrillation:null,
+  });
+  const explicitlyUnconfirmed=summarizeBloodPressure({
+    ...bpBase,
+    diagnosedDiabetes:true,
+    bpPersistence:'not_confirmed',
+    cvdHistory:null,
+    atrialFibrillation:null,
+  });
+  assert.match(notEntered.actionTitle,/高リスク背景あり/);
+  assert.match(notEntered.actionDetail,/約1か月/);
+  assert.match(notEntered.actionDetail,/薬物療法を考慮/);
+  assert.match(explicitlyUnconfirmed.actionTitle,/高リスク背景あり/);
+  assert.match(explicitlyUnconfirmed.actionDetail,/約1か月/);
+  assert.match(explicitlyUnconfirmed.actionDetail,/薬物療法を考慮/);
+});
