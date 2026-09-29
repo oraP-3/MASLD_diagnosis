@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { calculateBmi, deriveCmrf, evaluateGlycemia, classifyOfficeBp, evaluateBpDyslipidemia, evaluateBloodPressure, summarizeBloodPressure, evaluateUricAcid, classifySld, calculateFib4, evaluateFib4, evaluatePlatelets, shouldShowNit, interpretNit } from '../clinical-rules.js';
+import { calculateBmi, deriveCmrf, evaluateGlycemia, classifyOfficeBp, evaluateBpDyslipidemia, evaluateBloodPressure, summarizeBloodPressure, evaluateLipidDiabetesState, calculateModifiedHisayama, classifyModifiedHisayamaRisk, evaluateLipidRouting, evaluateUricAcid, classifySld, calculateFib4, evaluateFib4, evaluatePlatelets, shouldShowNit, interpretNit } from '../clinical-rules.js';
 
 test('BMI helper rounds to one decimal place',()=>assert.equal(calculateBmi(182,88),26.6));
 test('CMRF is derived from numeric inputs without manual checkboxes',()=>{const c=deriveCmrf({sex:'male',bmi:22.5,waist:90,hba1c:5.8,sbp:125,dbp:78,tg:120,hdl:55,diagnosedDiabetes:false,antihypertensiveTreatment:false,lipidTreatment:false});assert.equal(c.statuses.glucose,true);assert.equal(c.count,1)});
@@ -507,4 +507,158 @@ test('C4 grade-II medication guidance remains conditional on persistence',()=>{
 test('C4 treated above-target guidance retains tolerability review',()=>{
   const r=summarizeBloodPressure({...bpBase,sbp:135,dbp:82,antihypertensiveTreatment:true});
   assert.match(r.actionDetail,/忍容性/);
+});
+
+
+const lipidBase = {
+  age: 45,
+  sex: 'female',
+  sbp: 110,
+  ldl: 100,
+  hdl: 60,
+  currentSmoking: false,
+  diagnosedDiabetes: false,
+  diagnosedCkd: false,
+  pad: false,
+  knownFh: false,
+  familialTypeIII: false,
+  qualifyingSecondaryPrevention: false,
+  hba1c: 5.4,
+  fastingGlucose: 90,
+  randomGlucose: '',
+  separateDayDiabeticTypeConfirmed: false,
+};
+
+test('D2 known FH and familial type III bypass the general risk flow',()=>{
+  assert.equal(evaluateLipidRouting({...lipidBase,knownFh:true}).id,'known_fh');
+  assert.equal(evaluateLipidRouting({...lipidBase,familialTypeIII:true}).id,'familial_type_iii');
+});
+
+test('D2 qualifying secondary prevention bypasses modified Hisayama',()=>{
+  const r=evaluateLipidRouting({...lipidBase,qualifyingSecondaryPrevention:true});
+  assert.equal(r.id,'secondary_prevention');
+  assert.equal(r.scoreEligible,false);
+  assert.equal(r.score,null);
+});
+
+test('D2 diagnosed diabetes, CKD, and PAD each bypass modified Hisayama',()=>{
+  const diabetes=evaluateLipidRouting({...lipidBase,diagnosedDiabetes:true});
+  const ckd=evaluateLipidRouting({...lipidBase,diagnosedCkd:true});
+  const pad=evaluateLipidRouting({...lipidBase,pad:true});
+  assert.equal(diabetes.id,'primary_high_risk');
+  assert.ok(diabetes.highRiskReasons.includes('diabetes'));
+  assert.equal(ckd.id,'primary_high_risk');
+  assert.ok(ckd.highRiskReasons.includes('ckd'));
+  assert.equal(pad.id,'primary_high_risk');
+  assert.ok(pad.highRiskReasons.includes('pad'));
+});
+
+test('D2 unresolved diabetic-range testing does not fall back to the one-point glucose state',()=>{
+  const state=evaluateLipidDiabetesState({...lipidBase,hba1c:6.6,fastingGlucose:110});
+  const route=evaluateLipidRouting({...lipidBase,hba1c:6.6,fastingGlucose:110});
+  assert.equal(state.status,'unresolved');
+  assert.equal(route.id,'unresolved');
+  assert.equal(route.reason,'diabetes_status');
+});
+
+test('D2 confirmed diabetic-type testing routes as diabetes high risk',()=>{
+  const sameSample=evaluateLipidRouting({...lipidBase,hba1c:6.6,fastingGlucose:126});
+  const repeated=evaluateLipidRouting({...lipidBase,hba1c:5.8,fastingGlucose:130,separateDayDiabeticTypeConfirmed:true});
+  assert.equal(sameSample.id,'primary_high_risk');
+  assert.ok(sameSample.highRiskReasons.includes('diabetes'));
+  assert.equal(repeated.id,'primary_high_risk');
+  assert.ok(repeated.highRiskReasons.includes('diabetes'));
+});
+
+test('D2 modified Hisayama component points match the D1 lock',()=>{
+  const male=calculateModifiedHisayama({...lipidBase,sex:'male'});
+  assert.equal(male.points.sex,7);
+
+  const sbpCases=[[119,0],[120,1],[130,2],[140,3],[160,4]];
+  for(const [sbp,expected] of sbpCases) assert.equal(calculateModifiedHisayama({...lipidBase,sbp}).points.sbp,expected);
+
+  const ldlCases=[[119,0],[120,1],[140,2],[160,3]];
+  for(const [ldl,expected] of ldlCases) assert.equal(calculateModifiedHisayama({...lipidBase,ldl}).points.ldl,expected);
+
+  const hdlCases=[[60,0],[59,1],[40,1],[39,2]];
+  for(const [hdl,expected] of hdlCases) assert.equal(calculateModifiedHisayama({...lipidBase,hdl}).points.hdl,expected);
+
+  assert.equal(calculateModifiedHisayama({...lipidBase,hba1c:5.7,fastingGlucose:90}).points.glucose,1);
+  assert.equal(calculateModifiedHisayama({...lipidBase,hba1c:5.4,fastingGlucose:100}).points.glucose,1);
+  assert.equal(calculateModifiedHisayama({...lipidBase,currentSmoking:true}).points.smoking,2);
+});
+
+test('D2 maximum modified Hisayama score is 19',()=>{
+  const r=calculateModifiedHisayama({
+    ...lipidBase,
+    sex:'male',
+    sbp:160,
+    ldl:160,
+    hdl:39,
+    hba1c:6.0,
+    fastingGlucose:110,
+    currentSmoking:true,
+  });
+  assert.equal(r.score,19);
+  assert.deepEqual(r.points,{sex:7,sbp:4,glucose:1,ldl:3,hdl:2,smoking:2});
+});
+
+test('D2 age-specific risk classes match the locked JAS thresholds',()=>{
+  assert.equal(classifyModifiedHisayamaRisk(45,12),'low');
+  assert.equal(classifyModifiedHisayamaRisk(45,13),'intermediate');
+  assert.equal(classifyModifiedHisayamaRisk(55,7),'low');
+  assert.equal(classifyModifiedHisayamaRisk(55,8),'intermediate');
+  assert.equal(classifyModifiedHisayamaRisk(55,19),'high');
+  assert.equal(classifyModifiedHisayamaRisk(65,1),'low');
+  assert.equal(classifyModifiedHisayamaRisk(65,2),'intermediate');
+  assert.equal(classifyModifiedHisayamaRisk(65,13),'high');
+  assert.equal(classifyModifiedHisayamaRisk(75,0),'intermediate');
+  assert.equal(classifyModifiedHisayamaRisk(75,7),'intermediate');
+  assert.equal(classifyModifiedHisayamaRisk(75,8),'high');
+});
+
+test('D2 only ages 40 to 79 enter modified Hisayama',()=>{
+  assert.equal(evaluateLipidRouting({...lipidBase,age:39}).id,'out_of_score_range');
+  assert.equal(evaluateLipidRouting({...lipidBase,age:40}).id,'modified_hisayama');
+  assert.equal(evaluateLipidRouting({...lipidBase,age:79}).id,'modified_hisayama');
+  assert.equal(evaluateLipidRouting({...lipidBase,age:80}).id,'out_of_score_range');
+});
+
+test('D2 missing score-required data stays unresolved instead of assigning a risk class',()=>{
+  const missingHdl=evaluateLipidRouting({...lipidBase,hdl:''});
+  const missingGlucose=evaluateLipidRouting({...lipidBase,hba1c:5.4,fastingGlucose:''});
+  assert.equal(missingHdl.id,'unresolved');
+  assert.ok(missingHdl.missing.includes('hdl'));
+  assert.equal(missingGlucose.id,'unresolved');
+  assert.ok(missingGlucose.missing.includes('glucose_abnormality'));
+});
+
+test('D2 representative eligible patient returns score and age-specific risk class',()=>{
+  const r=evaluateLipidRouting({
+    ...lipidBase,
+    age:55,
+    sex:'male',
+    sbp:145,
+    ldl:145,
+    hdl:45,
+    hba1c:6.0,
+    fastingGlucose:110,
+    currentSmoking:true,
+  });
+  assert.equal(r.id,'modified_hisayama');
+  assert.equal(r.score,16);
+  assert.equal(r.riskClass,'intermediate');
+});
+
+
+test('D2 broad BP CVD history is not reused as lipid secondary prevention',()=>{
+  const r=evaluateLipidRouting({...lipidBase,cvdHistory:true,qualifyingSecondaryPrevention:false});
+  assert.equal(r.id,'modified_hisayama');
+});
+
+test('D2 DBP and antihypertensive treatment do not add modified Hisayama points',()=>{
+  const base=calculateModifiedHisayama(lipidBase);
+  const changed=calculateModifiedHisayama({...lipidBase,dbp:120,antihypertensiveTreatment:true});
+  assert.equal(changed.score,base.score);
+  assert.deepEqual(changed.points,base.points);
 });
