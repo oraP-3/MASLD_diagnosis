@@ -200,6 +200,7 @@ input:focus, select:focus { outline: 3px solid rgba(36, 87, 214, .12); border-co
 .result-block { border-top: 1px solid var(--border); padding-top: 14px; }
 .result-label { margin: 0 0 6px; color: var(--muted); font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; }
 .result-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.result-grid.single { grid-template-columns: 1fr; }
 
 .result-card {
   border: 1px solid var(--border);
