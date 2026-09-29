@@ -186,10 +186,14 @@ function buildFibrosisDomain(input) {
   const suggestions = [];
 
   if (fib4 === null) {
-    if (toNumber(input.age) === null) suggestions.push(missingItem('age', MISSING_DATA_CLASS.required, 'fibrosis', 'FIB-4計算に必要なため'));
-    if (toNumber(input.ast) === null) suggestions.push(missingItem('ast', MISSING_DATA_CLASS.required, 'fibrosis', 'FIB-4計算に必要なため'));
-    if (toNumber(input.alt) === null) suggestions.push(missingItem('alt', MISSING_DATA_CLASS.required, 'fibrosis', 'FIB-4計算に必要なため'));
-    if (toNumber(input.plateletsWan) === null) suggestions.push(missingItem('platelets', MISSING_DATA_CLASS.required, 'fibrosis', 'FIB-4計算と補助評価に必要なため'));
+    const age = toNumber(input.age);
+    const ast = toNumber(input.ast);
+    const alt = toNumber(input.alt);
+    const platelets = toNumber(input.plateletsWan);
+    if (age === null || age <= 0) suggestions.push(missingItem('age', MISSING_DATA_CLASS.required, 'fibrosis', 'FIB-4計算に有効な年齢が必要なため'));
+    if (ast === null || ast <= 0) suggestions.push(missingItem('ast', MISSING_DATA_CLASS.required, 'fibrosis', 'FIB-4計算に有効なASTが必要なため'));
+    if (alt === null || alt <= 0) suggestions.push(missingItem('alt', MISSING_DATA_CLASS.required, 'fibrosis', 'FIB-4計算に有効なALTが必要なため'));
+    if (platelets === null || platelets <= 0) suggestions.push(missingItem('platelets', MISSING_DATA_CLASS.required, 'fibrosis', 'FIB-4計算と補助評価に有効な血小板値が必要なため'));
   }
 
   const secondLineMeaningful = shouldShowNit({
@@ -365,11 +369,13 @@ function buildLipidsDomain(input) {
   if (result.status === 'target_set' && result.ldl === null) {
     suggestions.push(missingItem('ldl', MISSING_DATA_CLASS.required, 'lipids', 'LDL-C目標の達成状況と介入要否を評価するため'));
   }
-  if (toNumber(input.tg) === null) {
-    suggestions.push(missingItem('tg', MISSING_DATA_CLASS.required, 'lipids', 'TG目標との位置づけを評価するため'));
-  }
-  if (toNumber(input.hdl) === null) {
-    suggestions.push(missingItem('hdl', MISSING_DATA_CLASS.required, 'lipids', 'HDL-C低値の有無を評価するため'));
+  if (result.status !== 'familial_type_iii') {
+    if (toNumber(input.tg) === null) {
+      suggestions.push(missingItem('tg', MISSING_DATA_CLASS.required, 'lipids', 'TG目標との位置づけを評価するため'));
+    }
+    if (toNumber(input.hdl) === null) {
+      suggestions.push(missingItem('hdl', MISSING_DATA_CLASS.required, 'lipids', 'HDL-C低値の有無を評価するため'));
+    }
   }
 
   let nextAction = null;
