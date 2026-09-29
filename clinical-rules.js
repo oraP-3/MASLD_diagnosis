@@ -594,7 +594,11 @@ function bpHighRiskLabels(input, result, layer2Labels) {
 
 function bpMissingLabels(input, result) {
   const labels = [];
-  if (result.riskLevel === 'unresolved') {
+  const riskResolutionAffectsAction =
+    !input.antihypertensiveTreatment &&
+    ['elevated', 'grade1'].includes(result.category?.id);
+
+  if (result.riskLevel === 'unresolved' && riskResolutionAffectsAction) {
     if (toNumber(input.age) === null) labels.push('年齢');
     if (input.sex !== 'male' && input.sex !== 'female') labels.push('性別');
     if (result.showRiskBackground && (input.cvdHistory === null || input.cvdHistory === undefined)) labels.push('脳・心血管疾患既往');
@@ -629,7 +633,9 @@ export function summarizeBloodPressure(input) {
   const missing = bpMissingLabels(input, result);
 
   let classificationDetail = '現在の診察室血圧分類です。';
-  if (result.riskLevel === 'high') {
+  if (input.antihypertensiveTreatment) {
+    classificationDetail = '降圧薬治療中の現在の診察室血圧です。治療目標との比較は「次の対応」に表示します。';
+  } else if (result.riskLevel === 'high') {
     if (highRiskLabels.length) {
       classificationDetail = `${highRiskLabels.join('、')}を伴うため高リスクです。`;
     } else if (result.category.id === 'grade3') {
@@ -641,7 +647,7 @@ export function summarizeBloodPressure(input) {
     }
   } else if (result.riskLevel === 'moderate') {
     if (result.category.id === 'grade2' && !layer2Labels.length) {
-      classificationDetail = 'II度高血圧域で、追加の高リスク背景は現時点で確認されていません。';
+      classificationDetail = 'II度高血圧域です。追加背景によるリスク層別化にかかわらず、対応は速やかな再確認・臨床評価の分岐です。';
     } else if (layer2Labels.length) {
       classificationDetail = `${layer2Labels.join('、')}を伴うため中等リスクです。`;
     } else {
@@ -650,9 +656,13 @@ export function summarizeBloodPressure(input) {
   } else if (result.riskLevel === 'low') {
     classificationDetail = '治療タイミングを早める追加の高リスク背景は現時点で確認されていません。';
   } else if (result.riskLevel === 'unresolved') {
-    classificationDetail = missing.length
-      ? `${missing.filter((item) => item !== '血圧高値の持続確認').join('、') || '追加情報'}の確認でリスク判定が変わる可能性があります。`
-      : '追加情報によりリスク判定が変わる可能性があります。';
+    if (result.category.id === 'grade2') {
+      classificationDetail = '追加背景によりリスク層別化は変わり得ますが、今回の対応タイミングは変わりません。';
+    } else {
+      classificationDetail = missing.length
+        ? `${missing.filter((item) => item !== '血圧高値の持続確認').join('、') || '追加情報'}の確認でリスク判定が変わる可能性があります。`
+        : '追加情報によりリスク判定が変わる可能性があります。';
+    }
   } else {
     classificationDetail = 'この血圧域では治療タイミング用の追加リスク層別化は行いません。';
   }
@@ -666,7 +676,7 @@ export function summarizeBloodPressure(input) {
   switch (result.timingClass) {
     case 'urgent_assessment':
       actionTitle = '速やかな臨床評価が必要';
-      actionDetail = 'III度高血圧域です。routineな家庭血圧待ちにはせず、症状を含め速やかに臨床評価します。';
+      actionDetail = 'III度高血圧域です。通常の家庭血圧確認待ちにはせず、症状を含め速やかに臨床評価します。';
       actionTone = 'bad';
       break;
 
