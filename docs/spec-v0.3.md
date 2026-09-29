@@ -71,6 +71,7 @@ Conditional helpers:
 Compact initial flags:
 - taking antihypertensive medication
 - diagnosed diabetes
+- CKD diagnosed / established
 - taking lipid-lowering medication
 - taking urate-lowering medication
 
@@ -79,7 +80,6 @@ Compact initial flags:
 Ask only when a relevant branch requires it:
 
 - cardiovascular / cerebrovascular disease history
-- CKD
 - PAD
 - atrial fibrillation
 - proteinuria
@@ -181,9 +181,16 @@ If not confirmed:
 - recommend home BP or another-day office measurement
 - keep the result as `needs confirmation` where persistence can change management
 
-Do not make a persistence question block urgent clinical assessment for markedly elevated BP or symptomatic patients.
+Precedence for untreated patients:
+- elevated BP / high-normal and grade I hypertension: if persistence is not established, do **not** emit a medication-start message yet
+- grade I + high risk: show high-risk context, request prompt confirmation, and state that pharmacologic treatment should be considered promptly **if persistent hypertension is confirmed**
+- grade II hypertension: do not use a prolonged watch-and-wait branch; request prompt repeat / confirmation and clinical assessment, with pharmacologic treatment consideration once persistent hypertension is confirmed
+- grade III hypertension or a symptomatic / urgent clinical presentation: urgent clinical assessment supersedes the routine persistence-confirmation workflow
 
-For patients already receiving antihypertensive treatment, do not ask whether hypertension is persistent; interpret the current BP in treatment context.
+For patients already receiving antihypertensive treatment:
+- do not ask whether hypertension is persistent
+- interpret the current BP against the treatment target
+- never use `start treatment` wording for an already-treated patient
 
 ### JSH2025 cardiovascular-risk strata
 
@@ -223,7 +230,9 @@ Do not expose `risk layer 1/2/3` terminology in the routine user-facing UI. Expl
 
 ### Treatment / reassessment timing
 
-Lock the following operational wording for C2/C3:
+Lock the following operational wording for C2/C3.
+
+#### Untreated
 
 - high-normal / elevated BP + low/moderate risk:
   - lifestyle modification
@@ -233,19 +242,40 @@ Lock the following operational wording for C2/C3:
 - high-normal / elevated BP + high risk:
   - lifestyle modification
   - short-interval reassessment, approximately 1 month
-  - if BP remains above target, pharmacologic treatment may be considered
+  - if BP remains above target / persistent elevation is confirmed, pharmacologic treatment may be considered
 
 - grade I hypertension + low/moderate risk:
+  - if persistence is not established, confirm with home BP or another-day office BP
   - lifestyle modification
   - reassess within approximately 1 month
-  - if still above target, begin / consider pharmacologic treatment
+  - if persistent, begin / consider pharmacologic treatment
 
 - grade I hypertension + high risk:
-  - lifestyle modification plus prompt pharmacologic treatment
+  - if persistence is not established, obtain prompt confirmation rather than emitting an unconditional medication-start message
+  - once persistent hypertension is confirmed, lifestyle modification plus prompt pharmacologic treatment
 
-- grade II / III hypertension:
-  - lifestyle modification plus prompt pharmacologic treatment regardless of lower risk strata
-  - prompt confirmation / clinical assessment still matters, but do not present this as a prolonged watch-and-wait branch
+- grade II hypertension:
+  - prompt repeat / confirmation and clinical assessment
+  - do not create a prolonged lifestyle-only waiting branch
+  - once persistent hypertension is confirmed, lifestyle modification plus prompt pharmacologic treatment regardless of lower risk strata
+
+- grade III hypertension or symptomatic / urgent presentation:
+  - urgent clinical assessment
+  - do not route through a routine home-BP / another-day confirmation delay
+
+#### Already treated
+
+Do not use treatment-initiation wording.
+
+- office BP <130/80 mmHg:
+  - within the default office target
+  - continue current treatment / monitoring as clinically appropriate
+
+- office BP >=130/80 mmHg:
+  - above the default office target
+  - review current treatment context, adherence, tolerability, and available home BP
+  - consider treatment intensification as clinically appropriate
+  - grade II / III values warrant more prompt reassessment / treatment review than mild above-target values
 
 Do not convert these into autonomous prescribing instructions. The tool should describe timing and treatment consideration.
 
@@ -296,20 +326,27 @@ Operational positive threshold:
 
 If grade II / III hypertension already places the patient in a prompt-treatment branch, do not ask proteinuria solely to decide treatment timing.
 
+If proteinuria is unknown and its answer would change only the **internal JSH risk tier** but not the current user-visible BP category or treatment-timing branch:
+- allow the internal risk tier to remain unresolved / bounded (for example, moderate-or-high)
+- do not surface an extra proteinuria question merely to force an exact internal label
+- do not present a falsely precise risk tier
+
 Proteinuria can still matter for drug selection / renal management, but drug-class selection is outside the Phase C scope.
 
 ### C2 implementation contract
 
 C2 should implement pure rules for:
 - office-BP category using the higher SBP / DBP category
-- internal risk level
+- internal risk level when determinable, or an explicit unresolved / bounded risk state when missing data cannot change the current action branch
 - high-risk trigger reason(s)
 - whether persistence confirmation is needed
 - whether proteinuria is decision-relevant
 - treatment-timing class:
   - lifestyle / planned reassessment
   - short-interval reassessment
+  - prompt confirmation / clinical assessment
   - prompt pharmacologic-treatment consideration
+  - treated-above-target review / intensification consideration
 - office/home target context
 
 ## 8. Logic 3 — Lipids
