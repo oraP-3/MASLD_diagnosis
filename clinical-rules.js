@@ -445,11 +445,21 @@ export function evaluateBloodPressure(input) {
   const possibleRisks = possibleBpRiskLevels(input, category.id);
   const riskLevel = possibleRisks.length === 1 ? possibleRisks[0] : 'unresolved';
 
-  const showRiskBackground = !treated && ['elevated', 'grade1'].includes(category.id);
+  const highRiskEstablishedWithoutCvdAf =
+    Boolean(input.diagnosedDiabetes) ||
+    knownLayer2Count >= 3 ||
+    (Boolean(input.diagnosedCkd) && input.proteinuriaPresent === true);
+  const showRiskBackground =
+    !treated &&
+    ['elevated', 'grade1'].includes(category.id) &&
+    !highRiskEstablishedWithoutCvdAf;
 
   const riskBackgroundResolved =
-    input.cvdHistory !== null && input.cvdHistory !== undefined &&
-    input.atrialFibrillation !== null && input.atrialFibrillation !== undefined;
+    highRiskEstablishedWithoutCvdAf ||
+    (
+      input.cvdHistory !== null && input.cvdHistory !== undefined &&
+      input.atrialFibrillation !== null && input.atrialFibrillation !== undefined
+    );
 
   const riskWithoutProtein = possibleBpRiskLevels(input, category.id, { proteinuriaPresent: false });
   const riskWithProtein = possibleBpRiskLevels(input, category.id, { proteinuriaPresent: true });
@@ -507,14 +517,14 @@ export function evaluateBloodPressure(input) {
   const showPersistenceQuestion = !treated && ['elevated', 'grade1', 'grade2'].includes(category.id);
 
   let timingClass = 'no_hypertension_action';
-  if (treated) {
+  if (category.id === 'grade3') {
+    timingClass = 'urgent_assessment';
+  } else if (treated) {
     const sbp = toNumber(input.sbp);
     const dbp = toNumber(input.dbp);
     timingClass = sbp < BP_THRESHOLDS.officeTargetSbp && dbp < BP_THRESHOLDS.officeTargetDbp
       ? 'treated_within_target'
       : 'treated_above_target';
-  } else if (category.id === 'grade3') {
-    timingClass = 'urgent_assessment';
   } else if (category.id === 'grade2') {
     timingClass = persistenceConfirmed ? 'prompt_pharmacologic_consideration' : 'prompt_confirmation';
   } else if (category.id === 'grade1') {
@@ -531,7 +541,7 @@ export function evaluateBloodPressure(input) {
     if (!persistenceConfirmed) {
       timingClass = 'needs_confirmation';
     } else if (riskLevel === 'high') {
-      timingClass = 'short_interval_reassessment';
+      timingClass = 'short_interval_reassessment_with_pharmacologic_consideration';
     } else if (riskLevel === 'unresolved') {
       timingClass = 'needs_risk_resolution';
     } else {
