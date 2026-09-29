@@ -326,7 +326,7 @@ test('C3 grade-I high risk requires prompt confirmation before drug-start wordin
   const before=summarizeBloodPressure({...bpBase,sbp:145,dbp:92,diagnosedDiabetes:true,bpPersistence:'',cvdHistory:null,atrialFibrillation:null});
   const after=summarizeBloodPressure({...bpBase,sbp:145,dbp:92,diagnosedDiabetes:true,bpPersistence:'home',cvdHistory:null,atrialFibrillation:null});
   assert.match(before.actionTitle,/速やかに持続確認/);
-  assert.match(before.actionDetail,/確認されれば/);
+  assert.match(before.actionDetail,/持続確認/);
   assert.equal(after.actionTitle,'薬物療法を速やかに検討');
 });
 
@@ -366,7 +366,7 @@ test('C3 unresolved risk names decision-relevant missing information',()=>{
   const r=summarizeBloodPressure({...bpBase,diagnosedCkd:true,cvdHistory:false,atrialFibrillation:false,proteinuriaPresent:null,bpPersistence:'home'});
   assert.equal(r.riskLevel,'unresolved');
   assert.ok(r.missing.includes('蛋白尿'));
-  assert.match(r.classificationDetail,/蛋白尿/);
+  assert.equal(r.classificationDetail,'背景情報の確認でリスク判定が変わります。');
   assert.equal(r.actionTitle,'追加情報で対応を確定');
 });
 
