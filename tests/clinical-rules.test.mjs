@@ -707,18 +707,18 @@ test('D3 known FH uses <100 in primary prevention and <70 in secondary preventio
 });
 
 test('D3 secondary prevention defaults to <100 and tightens to <70 for diabetes ACS or combined vascular disease',()=>{
-  const base={...lipidBase,qualifyingSecondaryPrevention:true,acuteCoronarySyndrome:false,coronaryArteryDisease:true,atherothromboticCerebralInfarction:false};
+  const base={...lipidBase,qualifyingSecondaryPrevention:true,acuteCoronarySyndrome:false,combinedCadAtherothromboticStroke:false};
   assert.equal(evaluateLipidTarget(base).target,100);
   assert.equal(evaluateLipidTarget({...base,diagnosedDiabetes:true}).target,70);
   assert.equal(evaluateLipidTarget({...base,acuteCoronarySyndrome:true}).target,70);
-  assert.equal(evaluateLipidTarget({...base,coronaryArteryDisease:true,atherothromboticCerebralInfarction:true}).target,70);
+  assert.equal(evaluateLipidTarget({...base,combinedCadAtherothromboticStroke:true}).target,70);
 });
 
 test('D3 secondary prevention stays unresolved while a stricter target can still be established',()=>{
-  const acsUnknown=evaluateLipidTarget({...lipidBase,qualifyingSecondaryPrevention:true,acuteCoronarySyndrome:null,coronaryArteryDisease:null,atherothromboticCerebralInfarction:null});
+  const acsUnknown=evaluateLipidTarget({...lipidBase,qualifyingSecondaryPrevention:true,acuteCoronarySyndrome:null,combinedCadAtherothromboticStroke:null});
   assert.equal(acsUnknown.status,'unresolved');
   assert.equal(acsUnknown.questionState.showSecondarySubtypeQuestion,true);
-  const combinedUnknown=evaluateLipidTarget({...lipidBase,qualifyingSecondaryPrevention:true,acuteCoronarySyndrome:false,coronaryArteryDisease:true,atherothromboticCerebralInfarction:null});
+  const combinedUnknown=evaluateLipidTarget({...lipidBase,qualifyingSecondaryPrevention:true,acuteCoronarySyndrome:false,combinedCadAtherothromboticStroke:null});
   assert.equal(combinedUnknown.status,'unresolved');
   assert.equal(combinedUnknown.questionState.showSecondaryCombinedQuestion,true);
 });
@@ -792,4 +792,19 @@ test('D3 treatment context distinguishes target attainment from above-target tre
   assert.match(atTarget.detail,/脂質低下療法中/);
   assert.equal(above.tone,'warn');
   assert.match(above.detail,/治療強化の要否/);
+});
+
+
+test('D3 answered diabetes tightening questions remain visible for review',()=>{
+  const padPositive=evaluateLipidTarget({...lipidBase,diagnosedDiabetes:true,pad:true,diabeticMicrovascularDisease:null});
+  assert.equal(padPositive.questionState.showPadQuestion,true);
+  const microPositive=evaluateLipidTarget({...lipidBase,diagnosedDiabetes:true,pad:false,diabeticMicrovascularDisease:true});
+  assert.equal(microPositive.questionState.showPadQuestion,true);
+  assert.equal(microPositive.questionState.showDiabeticMicrovascularQuestion,true);
+});
+
+test('D3 age 80 or older high-risk target carries individualization wording',()=>{
+  const r=summarizeLipids({...lipidBase,age:82,diagnosedCkd:true,pad:null});
+  assert.equal(r.target,120);
+  assert.match(r.detail,/フレイル/);
 });
