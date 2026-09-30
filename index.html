@@ -16,7 +16,37 @@
       <button id="resetButton" class="secondary-button" type="button">入力をリセット</button>
     </header>
 
-    <section class="card">
+    <section class="card results-overview" aria-labelledby="summaryHeading">
+      <div class="results-overview-heading">
+        <div>
+          <p class="eyebrow">Clinical summary</p>
+          <h2 id="summaryHeading">診療サマリー</h2>
+          <p class="subtle">6領域の現在の情報・解釈・次の対応を一か所で確認できます。</p>
+        </div>
+        <span class="summary-live-badge">入力に応じて自動更新</span>
+      </div>
+
+      <div id="unifiedResultGrid" class="clinical-result-grid"></div>
+
+      <section id="additionalInfoSection" class="additional-info" aria-labelledby="additionalInfoHeading">
+        <div class="additional-info-heading">
+          <div>
+            <p class="eyebrow">Additional information to confirm</p>
+            <h2 id="additionalInfoHeading">追加で確認する情報</h2>
+          </div>
+        </div>
+        <div id="completionState" aria-live="polite"></div>
+        <div id="additionalInfoContent"></div>
+      </section>
+    </section>
+
+    <div class="input-section-intro">
+      <p class="eyebrow">Inputs & conditional checks</p>
+      <h2>入力・条件確認</h2>
+      <p class="subtle">必要な項目だけ入力し、条件に応じて追加質問が表示されます。</p>
+    </div>
+
+    <section class="card input-card">
       <div class="section-heading"><div><span class="step">1</span><h2>基本情報</h2></div></div>
       <div class="grid cols-3">
         <label>年齢<input id="age" type="number" min="18" max="120" inputmode="numeric" placeholder="例 58" /></label>
@@ -56,7 +86,7 @@
       </div>
     </section>
 
-    <section class="card">
+    <section class="card input-card">
       <div class="section-heading"><div><span class="step">2</span><h2>糖代謝</h2></div></div>
       <div id="glucoseConfirm" class="conditional-box hidden">
         <strong>随時血糖で確認</strong>
@@ -68,17 +98,11 @@
         <label class="choice-card compact"><input id="separateDayDiabeticTypeConfirmed" type="checkbox" /> 別日に糖尿病型を確認済み</label>
         <p class="microcopy">別日の空腹時血糖 ≥126 mg/dL、随時血糖 ≥200 mg/dL、またはHbA1c ≥6.5%を確認済みの場合にチェックします。</p>
       </div>
-      <div id="glycemiaResult" class="result-card neutral"><p class="result-label">糖代謝</p><h3>入力待ち</h3><p>HbA1cまたは空腹時血糖を入力してください。</p></div>
       <p class="microcopy">MASLDの糖代謝CMRFはHbA1cまたは空腹時血糖から評価します。糖尿病診断済みの場合は一般的なHbA1c目標（7.0%未満）との位置づけを表示します。</p>
     </section>
 
-    <section class="card">
+    <section class="card input-card">
       <div class="section-heading"><div><span class="step">3</span><h2>血圧</h2></div></div>
-      <div id="bpResultGrid" class="result-grid single">
-        <div id="bpCategoryResult" class="result-card neutral"><p class="result-label">診察室血圧</p><h3>入力待ち</h3><p>収縮期・拡張期血圧を入力してください。</p></div>
-        <div id="bpActionResult" class="result-card neutral hidden"><p class="result-label">次の対応</p><h3>入力待ち</h3><p>血圧分類後に次の対応を表示します。</p></div>
-      </div>
-
       <div id="bpRiskBackgroundPrompt" class="conditional-box hidden">
         <strong>高リスク背景の確認</strong>
         <div class="grid cols-2">
@@ -123,7 +147,7 @@
       </div>
     </section>
 
-    <section class="card">
+    <section class="card input-card">
       <div class="section-heading"><div><span class="step">4</span><h2>脂質</h2></div></div>
 
       <fieldset class="inline-fieldset">
@@ -180,14 +204,10 @@
         <p class="microcopy">単にCKD診断済みというだけでは糖尿病性腎症とはみなしません。</p>
       </div>
 
-      <div class="result-grid top-gap">
-        <div id="lipidLdlResult" class="result-card neutral"><p class="result-label">LDL-C</p><h3>脂質リスク判定待ち</h3><p>脂質固有の背景を確認してください。</p></div>
-        <div id="lipidTgResult" class="result-card neutral"><p class="result-label">TG / HDL-C</p><h3>入力待ち</h3><p>TGまたはHDL-Cを入力してください。</p></div>
-      </div>
       <p class="microcopy">TGは空腹時と明確に確認できる場合のみ &lt;150 mg/dL、それ以外は随時扱いで &lt;175 mg/dLを用います。脂質判定のためだけにTG 150–174 mg/dLで空腹時確認を追加しません。</p>
     </section>
 
-    <section class="card">
+    <section class="card input-card">
       <div class="section-heading"><div><span class="step">5</span><h2>SLD分類</h2></div></div>
       <div class="grid cols-2">
         <fieldset class="inline-fieldset">
@@ -222,20 +242,14 @@
       </div>
 
       <div class="result-block top-gap"><p class="result-label">自動CMRF</p><div id="cmrfBadges" class="badges"></div></div>
-      <div id="sldResult" class="result-card neutral"><p class="result-label">SLD分類</p><h3>入力待ち</h3><p>肝脂肪化、性別、飲酒量とCMRFを入力してください。</p></div>
     </section>
 
-    <section class="card">
+    <section class="card input-card">
       <div class="section-heading"><div><span class="step">6</span><h2>肝線維化</h2></div></div>
       <div class="grid cols-3">
         <label>AST U/L<input id="ast" type="number" min="1" max="5000" inputmode="numeric" /></label>
         <label>ALT U/L<input id="alt" type="number" min="1" max="5000" inputmode="numeric" /></label>
         <label>血小板 万/µL<input id="plateletsWan" type="number" min="1" max="100" step="0.1" inputmode="decimal" /></label>
-      </div>
-
-      <div class="result-grid top-gap">
-        <div id="fib4Result" class="result-card neutral"><p class="result-label">FIB-4</p><h3>入力待ち</h3><p>年齢・AST・ALT・血小板を入力してください。</p></div>
-        <div id="plateletResult" class="result-card neutral"><p class="result-label">血小板による補助評価</p><h3>入力待ち</h3><p>血小板値を入力してください。</p></div>
       </div>
 
       <div id="nitPrompt" class="conditional-box hidden">
@@ -254,7 +268,7 @@
       </div>
     </section>
 
-    <section class="card">
+    <section class="card input-card">
       <div class="section-heading"><div><span class="step">7</span><h2>尿酸</h2></div></div>
       <label>尿酸 mg/dL<input id="uricAcid" type="number" min="0" max="30" step="0.1" inputmode="decimal" placeholder="例 7.8" /></label>
       <label class="choice-card top-gap compact"><input id="urateTreatment" type="checkbox" /> 尿酸降下薬使用中</label>
@@ -285,11 +299,10 @@
         </div>
       </div>
 
-      <div id="uricResult" class="result-card neutral"><p class="result-label">尿酸</p><h3>入力待ち</h3><p>尿酸値を入力してください。</p></div>
       <p class="microcopy">8 / 9 mg/dLは薬物療法を「考慮する」閾値であり、自動的な投薬適応ではありません。</p>
     </section>
 
-    <section class="card info-card"><h2>現在の実装範囲</h2><p>SLD分類、肝線維化、糖代謝、尿酸、血圧に加え、脂質のJASリスク分類・LDL-C目標・条件入力まで実装しています。脂質Phaseの統合QAはD4で行います。</p></section>
+    <section class="card info-card"><h2>現在の実装範囲</h2><p>6領域を統合した診療サマリーと、現在の判断に影響する追加確認を表示します。最終的な分類・追加検査・治療判断は臨床情報と併せて行ってください。</p></section>
   </main>
   <script type="module" src="./app.js"></script>
 </body>

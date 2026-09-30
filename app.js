@@ -1,4 +1,6 @@
-import { calculateBmi, deriveCmrf, evaluateGlycemia, summarizeBloodPressure, summarizeLipids, evaluateUricAcid, classifySld, calculateFib4, evaluateFib4, evaluatePlatelets, shouldShowNit, interpretNit } from './clinical-rules.js';
+import { calculateBmi, deriveCmrf, evaluateGlycemia, summarizeBloodPressure, summarizeLipids, evaluateUricAcid, calculateFib4, evaluateFib4, shouldShowNit, interpretNit } from './clinical-rules.js';
+import { buildUnifiedClinicalResult } from './unified-results.js';
+import { renderUnifiedResultView } from './result-view.js';
 
 const DRINKS = [
   { id: 'beer', label: 'ビール・発泡酒 5%', unit: 'mL', gramsPerUnit: 0.04, step: 50, placeholder: '例 500' },
@@ -35,18 +37,12 @@ function currentInput() {
     proteinuriaPresent: boolRadio('proteinuriaPresent'), tgFastingStatus: radioValue('tgFastingStatus'), bpPersistence: radioValue('bpPersistence'),
     steatosis: boolRadio('steatosis'), alcoholGWeek: value('alcoholGWeek'), otherCause: checked('otherCause'),
     ast: value('ast'), alt: value('alt'), plateletsWan: value('plateletsWan'),
+    vcteKpa: value('vcteKpa'), swe: value('swe'), sweUnit: value('sweUnit'), mreKpa: value('mreKpa'),
+    elf: value('elf'), type4Collagen7s: value('type4Collagen7s'), m2bpgi: value('m2bpgi'),
     uricAcid: value('uricAcid'), urateTreatment: checked('urateTreatment'),
     goutPresent: boolRadio('goutPresent'), urinaryStone: boolRadio('urinaryStone'), otherUrateComplication: boolRadio('otherUrateComplication'),
   };
 }
-
-function resultClass(id) {
-  if (['masld', 'no_sld', 'low'].includes(id)) return 'good';
-  if (['metald', 'intermediate', 'pending', 'unclassified', 'cryptogenic'].includes(id)) return 'warn';
-  if (['ald', 'high', 'specific_sld'].includes(id)) return 'bad';
-  return 'neutral';
-}
-function setResultCard(el, label, title, detail, cls = 'neutral') { const detailHtml = detail ? `<p>${detail}</p>` : ''; el.className = `result-card ${cls}`; el.innerHTML = `<p class="result-label">${label}</p><h3>${title}</h3>${detailHtml}`; }
 
 function renderCmrf(cmrf) {
   $('cmrfBadges').innerHTML = Object.entries(cmrf.statuses).map(([key, status]) => {
@@ -56,79 +52,40 @@ function renderCmrf(cmrf) {
   }).join('');
   $('waistPrompt').classList.toggle('hidden', !cmrf.waistRelevant);
 }
-function renderGlycemia(input) {
+function renderGlycemiaPrompts(input) {
   const r = evaluateGlycemia(input);
   $('glucoseConfirm').classList.toggle('hidden', !r.showRandomGlucose);
   const showSeparateDayConfirmation = Boolean(r.showSeparateDayConfirmation);
   $('separateDayDiabeticConfirm').classList.toggle('hidden', !showSeparateDayConfirmation);
   if (!showSeparateDayConfirmation) $('separateDayDiabeticTypeConfirmed').checked = false;
-  setResultCard($('glycemiaResult'), '糖代謝', r.title, r.detail, r.tone);
 }
 
-function renderBloodPressure(input) {
+function renderBloodPressurePrompts(input) {
   const r = summarizeBloodPressure(input);
   $('bpRiskBackgroundPrompt').classList.toggle('hidden', !r.showRiskBackground);
   $('bpTgFastingPrompt').classList.toggle('hidden', !r.showTgFastingQuestion);
   $('bpProteinuriaPrompt').classList.toggle('hidden', !r.showProteinuriaQuestion);
   $('bpPersistencePrompt').classList.toggle('hidden', !r.showPersistenceQuestion);
-
-  if (!r.category) {
-    setResultCard($('bpCategoryResult'), '診察室血圧', '入力待ち', r.classificationDetail);
-    $('bpActionResult').classList.add('hidden');
-    $('bpResultGrid').classList.add('single');
-    return;
-  }
-
-  const classificationTone = r.category.id === 'grade3'
-    ? 'bad'
-    : ['elevated', 'grade1', 'grade2'].includes(r.category.id)
-      ? 'warn'
-      : 'good';
-  setResultCard($('bpCategoryResult'), '診察室血圧', r.category.label, r.classificationDetail, classificationTone);
-
-  if (r.showAction) {
-    setResultCard($('bpActionResult'), '次の対応', r.actionTitle, r.actionDetail, r.actionTone);
-    $('bpActionResult').classList.remove('hidden');
-    $('bpResultGrid').classList.remove('single');
-  } else {
-    $('bpActionResult').classList.add('hidden');
-    $('bpResultGrid').classList.add('single');
-  }
 }
 
-function renderLipids(input) {
+function renderLipidPrompts(input) {
   const r = summarizeLipids(input);
   $('lipidSecondaryPrompt').classList.toggle('hidden', !r.showSecondaryQuestion);
   $('lipidSecondarySubtypePrompt').classList.toggle('hidden', !r.showSecondarySubtypeQuestion);
   $('lipidSecondaryCombinedPrompt').classList.toggle('hidden', !r.showSecondaryCombinedQuestion);
   $('lipidPadPrompt').classList.toggle('hidden', !r.showPadQuestion);
   $('lipidMicrovascularPrompt').classList.toggle('hidden', !r.showDiabeticMicrovascularQuestion);
-
-  setResultCard($('lipidLdlResult'), 'LDL-C', r.title, r.detail, r.tone);
-  setResultCard($('lipidTgResult'), 'TG / HDL-C', r.tgTitle, r.tgDetail, r.tgTone);
 }
 
-function renderUricAcid(input) {
+function renderUricAcidPrompts(input) {
   const r = evaluateUricAcid(input);
   $('urateContext').classList.toggle('hidden', !r.showContextQuestions);
   $('urateComplicationPrompt').classList.toggle('hidden', !r.showComplicationQuestion);
-  setResultCard($('uricResult'), '尿酸', r.title, r.detail, r.tone);
 }
 
-function renderSld(input, cmrf) { const r = classifySld(input, cmrf); setResultCard($('sldResult'), 'SLD分類', r.title, r.detail, resultClass(r.id)); }
-
-function renderFibrosis(input) {
+function renderFibrosisPrompts(input) {
   const fib4 = calculateFib4(input);
   const evaluation = fib4 === null ? null : evaluateFib4(input.age, fib4);
-  const platelets = evaluatePlatelets(input.plateletsWan);
-  if (!evaluation) setResultCard($('fib4Result'), 'FIB-4', '入力待ち', '年齢・AST・ALT・血小板を入力してください。');
-  else {
-    const note = Number(input.age) >= 66 ? ` 66歳以上のため下限${evaluation.lowCutoff}を使用。` : '';
-    setResultCard($('fib4Result'), 'FIB-4', `${fib4.toFixed(2)} — ${evaluation.label}`, `${evaluation.detail}${note}`, resultClass(evaluation.id));
-  }
-  if (!platelets) setResultCard($('plateletResult'), '血小板による補助評価', '入力待ち', '血小板値を入力してください。');
-  else setResultCard($('plateletResult'), '血小板による補助評価', platelets.label, platelets.detail, resultClass(platelets.id));
-
   $('nitPrompt').classList.toggle('hidden', !shouldShowNit({ fib4Evaluation: evaluation, plateletsWan: input.plateletsWan }));
   renderNit();
 }
@@ -141,7 +98,29 @@ function renderNit() {
     : '<p class="microcopy">利用可能なNITがあれば入力してください。未入力の検査を不足データとしては扱いません。</p>';
 }
 
-function renderAll() { const input = currentInput(); const cmrf = deriveCmrf(input); renderCmrf(cmrf); renderGlycemia(input); renderBloodPressure(input); renderLipids(input); renderSld(input, cmrf); renderFibrosis(input); renderUricAcid(input); }
+function renderUnifiedSummary(input) {
+  const unified = buildUnifiedClinicalResult(input);
+  const view = renderUnifiedResultView(unified);
+  $('unifiedResultGrid').innerHTML = view.cardsHtml;
+  $('additionalInfoContent').innerHTML = view.missingHtml;
+  $('completionState').innerHTML = view.completionHtml;
+  $('additionalInfoSection').classList.toggle('complete', view.completionState === 'complete');
+}
+
+function renderAll() {
+  let input = currentInput();
+  renderGlycemiaPrompts(input);
+
+  // Glycemia prompt visibility can clear a stale separate-day checkbox.
+  input = currentInput();
+  const cmrf = deriveCmrf(input);
+  renderCmrf(cmrf);
+  renderBloodPressurePrompts(input);
+  renderLipidPrompts(input);
+  renderFibrosisPrompts(input);
+  renderUricAcidPrompts(input);
+  renderUnifiedSummary(input);
+}
 
 function setupDrinkHelper() {
   $('drinkRows').innerHTML = DRINKS.map(({ id, label, unit, gramsPerUnit, step, placeholder }) => `
