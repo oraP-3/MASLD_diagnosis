@@ -16,7 +16,14 @@
       <button id="resetButton" class="secondary-button" type="button">入力をリセット</button>
     </header>
 
-    <section class="card results-overview" aria-labelledby="summaryHeading">
+    <nav id="viewSwitcher" class="view-switcher" aria-label="表示切替">
+      <div class="view-switcher-inner" role="tablist" aria-label="入力と結果の切替">
+        <button id="inputModeButton" class="view-switch active" type="button" role="tab" aria-selected="true">入力</button>
+        <button id="resultModeButton" class="view-switch" type="button" role="tab" aria-selected="false">結果</button>
+      </div>
+    </nav>
+
+    <section class="card results-overview hidden" data-view="result" aria-labelledby="summaryHeading">
       <div class="results-overview-heading">
         <div>
           <p class="eyebrow">Clinical summary</p>
@@ -40,13 +47,13 @@
       </section>
     </section>
 
-    <div class="input-section-intro">
+    <div class="input-section-intro" data-view="input">
       <p class="eyebrow">Inputs & conditional checks</p>
       <h2>入力・条件確認</h2>
       <p class="subtle">必要な項目だけ入力し、条件に応じて追加質問が表示されます。</p>
     </div>
 
-    <section class="card input-card">
+    <section class="card input-card" data-view="input">
       <div class="section-heading"><div><span class="step">1</span><h2>基本情報</h2></div></div>
       <div class="grid cols-3">
         <label>年齢<input id="age" type="number" min="18" max="120" inputmode="numeric" placeholder="例 58" /></label>
@@ -72,9 +79,17 @@
         <label>拡張期血圧 mmHg<input id="dbp" type="number" min="30" max="180" inputmode="numeric" /></label>
         <label>空腹時血糖 mg/dL<input id="fastingGlucose" type="number" min="20" max="1000" step="1" inputmode="numeric" /></label>
         <label>HbA1c %<input id="hba1c" type="number" min="3" max="20" step="0.1" inputmode="decimal" /></label>
-        <label>LDL-C mg/dL<input id="ldl" type="number" min="1" max="500" inputmode="numeric" /></label>
-        <label>中性脂肪 mg/dL<input id="tg" type="number" min="20" max="3000" inputmode="numeric" /></label>
         <label>HDL-C mg/dL<input id="hdl" type="number" min="5" max="200" inputmode="numeric" /></label>
+        <label>LDL-C mg/dL<input id="ldl" type="number" min="1" max="500" inputmode="numeric" /></label>
+        <div class="tg-input-group">
+          <label>中性脂肪 mg/dL<input id="tg" type="number" min="20" max="3000" inputmode="numeric" /></label>
+          <fieldset class="tg-sample-fieldset">
+            <legend>採血条件</legend>
+            <label class="choice compact-choice"><input id="tgFastingUnknown" type="radio" name="tgFastingStatus" value="" checked /> 不明</label>
+            <label class="choice compact-choice"><input type="radio" name="tgFastingStatus" value="fasting" /> 空腹時</label>
+            <label class="choice compact-choice"><input type="radio" name="tgFastingStatus" value="nonfasting" /> 随時</label>
+          </fieldset>
+        </div>
       </div>
 
       <div class="check-grid top-gap">
@@ -86,7 +101,7 @@
       </div>
     </section>
 
-    <section class="card input-card">
+    <section class="card input-card" data-view="input">
       <div class="section-heading"><div><span class="step">2</span><h2>糖代謝</h2></div></div>
       <div id="glucoseConfirm" class="conditional-box hidden">
         <strong>随時血糖で確認</strong>
@@ -101,7 +116,7 @@
       <p class="microcopy">MASLDの糖代謝CMRFはHbA1cまたは空腹時血糖から評価します。糖尿病診断済みの場合は一般的なHbA1c目標（7.0%未満）との位置づけを表示します。</p>
     </section>
 
-    <section class="card input-card">
+    <section class="card input-card" data-view="input">
       <div class="section-heading"><div><span class="step">3</span><h2>血圧</h2></div></div>
       <div id="bpRiskBackgroundPrompt" class="conditional-box hidden">
         <strong>高リスク背景の確認</strong>
@@ -117,15 +132,6 @@
             <label class="choice"><input type="radio" name="atrialFibrillation" value="false" /> なし</label>
           </fieldset>
         </div>
-      </div>
-
-      <div id="bpTgFastingPrompt" class="conditional-box hidden">
-        <strong>中性脂肪の採血条件</strong>
-        <p>TG 150–174 mg/dLで、空腹時かどうかによりJSHリスク判定が変わる可能性があります。</p>
-        <fieldset class="inline-fieldset">
-          <label class="choice"><input type="radio" name="tgFastingStatus" value="fasting" /> 空腹時</label>
-          <label class="choice"><input type="radio" name="tgFastingStatus" value="nonfasting" /> 非空腹時</label>
-        </fieldset>
       </div>
 
       <div id="bpProteinuriaPrompt" class="conditional-box hidden">
@@ -147,7 +153,7 @@
       </div>
     </section>
 
-    <section class="card input-card">
+    <section class="card input-card" data-view="input">
       <div class="section-heading"><div><span class="step">4</span><h2>脂質</h2></div></div>
 
       <fieldset class="inline-fieldset">
@@ -207,7 +213,7 @@
       <p class="microcopy">TGは空腹時と明確に確認できる場合のみ &lt;150 mg/dL、それ以外は随時扱いで &lt;175 mg/dLを用います。脂質判定のためだけにTG 150–174 mg/dLで空腹時確認を追加しません。</p>
     </section>
 
-    <section class="card input-card">
+    <section class="card input-card" data-view="input">
       <div class="section-heading"><div><span class="step">5</span><h2>SLD分類</h2></div></div>
       <div class="grid cols-2">
         <fieldset class="inline-fieldset">
@@ -244,7 +250,7 @@
       <div class="result-block top-gap"><p class="result-label">自動CMRF</p><div id="cmrfBadges" class="badges"></div></div>
     </section>
 
-    <section class="card input-card">
+    <section class="card input-card" data-view="input">
       <div class="section-heading"><div><span class="step">6</span><h2>肝線維化</h2></div></div>
       <div class="grid cols-3">
         <label>AST U/L<input id="ast" type="number" min="1" max="5000" inputmode="numeric" /></label>
@@ -268,7 +274,7 @@
       </div>
     </section>
 
-    <section class="card input-card">
+    <section class="card input-card" data-view="input">
       <div class="section-heading"><div><span class="step">7</span><h2>尿酸</h2></div></div>
       <label>尿酸 mg/dL<input id="uricAcid" type="number" min="0" max="30" step="0.1" inputmode="decimal" placeholder="例 7.8" /></label>
       <label class="choice-card top-gap compact"><input id="urateTreatment" type="checkbox" /> 尿酸降下薬使用中</label>

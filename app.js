@@ -63,7 +63,6 @@ function renderGlycemiaPrompts(input) {
 function renderBloodPressurePrompts(input) {
   const r = summarizeBloodPressure(input);
   $('bpRiskBackgroundPrompt').classList.toggle('hidden', !r.showRiskBackground);
-  $('bpTgFastingPrompt').classList.toggle('hidden', !r.showTgFastingQuestion);
   $('bpProteinuriaPrompt').classList.toggle('hidden', !r.showProteinuriaQuestion);
   $('bpPersistencePrompt').classList.toggle('hidden', !r.showPersistenceQuestion);
 }
@@ -107,6 +106,28 @@ function renderUnifiedSummary(input) {
   $('additionalInfoSection').classList.toggle('complete', view.completionState === 'complete');
 }
 
+let activeView = 'input';
+
+function setActiveView(view, { scroll = false } = {}) {
+  activeView = view === 'result' ? 'result' : 'input';
+
+  document.querySelectorAll('[data-view]').forEach((element) => {
+    element.classList.toggle('hidden', element.dataset.view !== activeView);
+  });
+
+  const inputActive = activeView === 'input';
+  $('inputModeButton').classList.toggle('active', inputActive);
+  $('resultModeButton').classList.toggle('active', !inputActive);
+  $('inputModeButton').setAttribute('aria-selected', String(inputActive));
+  $('resultModeButton').setAttribute('aria-selected', String(!inputActive));
+
+  if (scroll) {
+    requestAnimationFrame(() => {
+      $('viewSwitcher').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
+}
+
 function renderAll() {
   let input = currentInput();
   renderGlycemiaPrompts(input);
@@ -145,13 +166,27 @@ function resetAll() {
   document.querySelectorAll('input').forEach((input) => { if (input.type === 'checkbox' || input.type === 'radio') input.checked = false; else input.value = ''; });
   document.querySelectorAll('select').forEach((select) => { select.selectedIndex = 0; });
   document.querySelectorAll('.drink-count').forEach((input) => { input.value = '0'; });
-  $('alcoholPreview').textContent = '0 g/週'; $('alcoholPreview').dataset.weekly = '0'; $('bmiHelper').open = false; $('alcoholHelper').open = false; renderAll();
+  $('tgFastingUnknown').checked = true;
+  $('alcoholPreview').textContent = '0 g/週';
+  $('alcoholPreview').dataset.weekly = '0';
+  $('bmiHelper').open = false;
+  $('alcoholHelper').open = false;
+  setActiveView('input', { scroll: true });
+  renderAll();
 }
 
 function bindEvents() {
   document.body.addEventListener('input', (event) => { if (!event.target.classList.contains('drink-count')) renderAll(); });
   document.body.addEventListener('change', (event) => { if (event.target.id !== 'drinkingDays') renderAll(); });
   $('calculateBmiButton').addEventListener('click', () => { const bmi = calculateBmi(value('heightCm'), value('weightKg')); if (bmi !== null) { $('bmi').value = bmi.toFixed(1); renderAll(); } });
+  $('inputModeButton').addEventListener('click', () => setActiveView('input', { scroll: true }));
+  $('resultModeButton').addEventListener('click', () => {
+    renderAll();
+    setActiveView('result', { scroll: true });
+  });
   $('resetButton').addEventListener('click', resetAll);
 }
-setupDrinkHelper(); bindEvents(); renderAll();
+setupDrinkHelper();
+bindEvents();
+renderAll();
+setActiveView('input');
