@@ -59,7 +59,7 @@ test('E2 cards visually separate fact interpretation and next action layers', ()
     completion: { state: 'complete', message: '完了' },
   });
 
-  assert.match(view.cardsHtml, /現在のfact/);
+  assert.match(view.cardsHtml, /現在の情報/);
   assert.match(view.cardsHtml, /解釈/);
   assert.match(view.cardsHtml, /次の対応/);
   assert.match(view.cardsHtml, /次の対応あり/);
@@ -105,7 +105,7 @@ test('E2 complete state renders a clear no-more-decision-relevant-data message',
   assert.equal(view.completionState, 'complete');
   assert.equal(view.missingHtml, '');
   assert.match(view.completionHtml, /現在の主要判定に必要な情報は揃っています/);
-  assert.match(view.completionHtml, /decision-relevant dataはありません/);
+  assert.match(view.completionHtml, /現在の判断に影響する情報はありません/);
   assert.match(view.completionHtml, /completion-banner good/);
 });
 
