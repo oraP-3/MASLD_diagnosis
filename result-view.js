@@ -32,7 +32,7 @@ function domainStatus(domain) {
 
 function renderFacts(facts) {
   if (!facts?.length) {
-    return '<p class="summary-empty">主要factはまだありません。</p>';
+    return '<p class="summary-empty">主要な入力・計算値はまだありません。</p>';
   }
 
   return `<div class="summary-facts">${facts.map((item) => `
@@ -42,7 +42,7 @@ function renderFacts(facts) {
 
 function renderNextAction(nextAction) {
   if (!nextAction) {
-    return '<p class="summary-empty">現時点で追加のaction表示はありません。</p>';
+    return '<p class="summary-empty">現時点で追加の対応はありません。</p>';
   }
 
   return `<div class="summary-action ${toneClass(nextAction.tone)}">
@@ -77,7 +77,7 @@ function renderDomainCard(domain) {
     </header>
 
     <section class="summary-layer">
-      <p class="summary-layer-label">現在のfact</p>
+      <p class="summary-layer-label">現在の情報</p>
       ${renderFacts(domain.facts)}
     </section>
 
@@ -148,7 +148,7 @@ export function renderUnifiedResultView(result) {
   const completionHtml = `<div class="completion-banner ${completionTone(result.completion.state)}">
     <strong>${escapeHtml(result.completion.message)}</strong>
     ${result.completion.state === 'complete'
-      ? '<span>追加で確認すべきdecision-relevant dataはありません。</span>'
+      ? '<span>追加で確認すべき、現在の判断に影響する情報はありません。</span>'
       : ''}
   </div>`;
 
