@@ -39,7 +39,7 @@ test('E2 renderer emits six readable domain cards in E1 order', () => {
     completion: { state: 'complete', message: '現在の主要判定に必要な情報は揃っています。' },
   });
 
-  assert.equal((view.cardsHtml.match(/class="clinical-result-card/g) || []).length, 6);
+  assert.equal((view.cardsHtml.match(/data-domain="/g) || []).length, 6);
   const positions = sixDomains.map((item) => view.cardsHtml.indexOf(`data-domain="${item.key}"`));
   assert.ok(positions.every((position) => position >= 0));
   assert.deepEqual([...positions].sort((a, b) => a - b), positions);
