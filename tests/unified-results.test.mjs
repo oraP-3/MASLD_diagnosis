@@ -297,3 +297,63 @@ test('E1 urinary-stone history remains a next evaluation after the urate treatme
   });
   assert.equal(missingByKey(goutBranch, 'urinary_stone')?.class, MISSING_DATA_CLASS.nextEvaluation);
 });
+
+
+test('F3 confirmed hypertension removes redundant urate-other-complication requirement', () => {
+  const result = buildUnifiedClinicalResult({
+    age:55,
+    sex:'male',
+    bmi:28,
+    waist:'',
+    sbp:145,
+    dbp:92,
+    hba1c:6.0,
+    fastingGlucose:110,
+    randomGlucose:'',
+    separateDayDiabeticTypeConfirmed:false,
+    ldl:170,
+    tg:200,
+    hdl:35,
+    antihypertensiveTreatment:false,
+    diagnosedDiabetes:false,
+    diagnosedCkd:false,
+    lipidTreatment:false,
+    currentSmoking:true,
+    cvdHistory:false,
+    atrialFibrillation:false,
+    proteinuriaPresent:null,
+    tgFastingStatus:'nonfasting',
+    bpPersistence:'home',
+    knownFh:false,
+    familialTypeIII:false,
+    qualifyingSecondaryPrevention:false,
+    pad:false,
+    diabeticMicrovascularDisease:null,
+    acuteCoronarySyndrome:null,
+    combinedCadAtherothromboticStroke:null,
+    steatosis:true,
+    alcoholGWeek:0,
+    otherCause:false,
+    ast:60,
+    alt:40,
+    plateletsWan:16,
+    vcteKpa:'',
+    swe:'',
+    sweUnit:'kpa',
+    mreKpa:'',
+    elf:'',
+    type4Collagen7s:'',
+    m2bpgi:'',
+    uricAcid:8.2,
+    urateTreatment:false,
+    goutPresent:false,
+    urinaryStone:false,
+    otherUrateComplication:null,
+  });
+
+  const urate = result.domains.find((domain) => domain.key === 'uric_acid');
+  assert.equal(urate.interpretation.id, 'asymptomatic_ge8_with_complication');
+  assert.ok(urate.nextAction);
+  assert.doesNotMatch(JSON.stringify(urate.requiredMissingKeys), /urate_other_complication/);
+  assert.doesNotMatch(JSON.stringify(result.missing.required), /urate_other_complication/);
+});
