@@ -8,6 +8,7 @@ import {
   evaluatePlatelets,
   evaluateUricAcid,
   interpretNit,
+  LIPID_TARGETS,
   shouldShowNit,
   summarizeBloodPressure,
   summarizeLipids,
@@ -118,7 +119,7 @@ const HISAYAMA_RISK_LABELS = Object.freeze({
 function compactGlycemiaDetail(result) {
   const details = {
     known_diabetes_general_target:
-      '一般的な合併症予防目標（HbA1c 7.0%未満）の範囲内です。実際の目標は年齢・罹病期間・合併症・低血糖リスク等で個別化します。',
+      '一般的な合併症予防目標の範囲内です。実際の目標は年齢・罹病期間・合併症・低血糖リスク等で個別化します。',
     known_diabetes_above_general_target:
       '一般的な合併症予防目標（HbA1c 7.0%未満）を上回ります。実際の目標は個別背景を踏まえて設定します。',
     hba1c_and_glucose_diabetic_range:
@@ -140,6 +141,9 @@ function compactGlycemiaDetail(result) {
 }
 
 function compactUricAcidDetail(result) {
+  if (result.id === 'treated_at_target') {
+    return 'ガイドライン上の参考目標内です。';
+  }
   return result.detail.replace(/^尿酸 [0-9.]+ mg\/dL。\s*/, '');
 }
 
@@ -177,9 +181,13 @@ function compactLipidInterpretation(result, input) {
 
   if (result.ldl !== null) {
     if (strict) {
-      parts.push(result.atTarget
-        ? 'LDL-C：厳格化目標内'
-        : `LDL-C：<${result.target} mg/dLへの厳格化を考慮`);
+      if (result.atTarget) {
+        parts.push('LDL-C：厳格化目標内');
+      } else if (result.ldl < LIPID_TARGETS.diabetesDefault) {
+        parts.push(`LDL-C：基本目標内、<${result.target} mg/dLへの厳格化を考慮`);
+      } else {
+        parts.push(`LDL-C：基本目標未達（<${LIPID_TARGETS.diabetesDefault} mg/dL）、さらに<${result.target} mg/dLへの厳格化を考慮`);
+      }
     } else {
       parts.push(result.atTarget
         ? 'LDL-C：目標内'
@@ -515,7 +523,15 @@ function buildLipidsDomain(input) {
   const display = compactLipidInterpretation(result, input);
   const facts = compactFacts([
     numericFact('hdl', 'HDL-C', input.hdl, ' mg/dL', tgResult.hdlBelowTarget === true ? 'bad' : 'neutral'),
-    numericFact('ldl', 'LDL-C', input.ldl, ' mg/dL', result.atTarget === false ? 'bad' : 'neutral'),
+    numericFact(
+      'ldl',
+      'LDL-C',
+      input.ldl,
+      ' mg/dL',
+      result.targetReason === 'diabetes_strict'
+        ? (result.ldl !== null && result.ldl >= LIPID_TARGETS.diabetesDefault ? 'bad' : 'neutral')
+        : (result.atTarget === false ? 'bad' : 'neutral'),
+    ),
     numericFact('tg', '中性脂肪', input.tg, ' mg/dL', tgResult.tgAboveTarget === true ? 'bad' : 'neutral'),
     result.route?.score !== null && result.route?.score !== undefined
       ? fact(
