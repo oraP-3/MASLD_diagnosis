@@ -1,8 +1,11 @@
 # MASLD Clinical Support — Implementation Plan v0.1
 
-Status: pre-implementation planning  
+Status: historical implementation plan; implementation completed through Phase E  
 Base: specification v0.3  
-Date: 2026-09-28
+Original date: 2026-09-28  
+Status reviewed: 2026-10-01
+
+This file preserves the original implementation plan and starting-repository audit. Statements describing the initial repository state are historical and should not be read as the current architecture. Current architecture is summarized in the repository README; current execution state is tracked in Issue #2.
 
 ## 1. Scope lock
 

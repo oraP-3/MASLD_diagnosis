@@ -1,6 +1,6 @@
 # Unified result contract v0.1
 
-Status: E1 implementation contract.
+Status: implemented E1 contract; consumed by the current E2/E3 result UI.
 
 This document defines the normalized result model used to combine the six clinical domains without changing their underlying clinical rules.
 
@@ -22,7 +22,7 @@ E1 does not:
 - add drug-selection logic;
 - persist patient data.
 
-The six-card UI and the visual `Additional information to confirm` section remain E2 work.
+The six-card UI and the visual additional-information section were implemented in E2/E3 and consume this contract without changing its clinical semantics.
 
 ## 2. Domain contract
 

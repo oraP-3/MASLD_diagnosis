@@ -481,24 +481,6 @@ input:focus, select:focus { outline: 3px solid rgba(36, 87, 214, .12); border-co
 .badge.unknown { background: var(--warn-soft); color: var(--warn); }
 .result-block { border-top: 1px solid var(--border); padding-top: 14px; }
 .result-label { margin: 0 0 6px; color: var(--muted); font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; }
-.result-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-.result-grid.single { grid-template-columns: 1fr; }
-
-.result-card {
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 15px;
-  margin-top: 12px;
-}
-
-.result-card h3 { margin: 0 0 6px; font-size: 21px; }
-.result-card p:last-child { margin: 0; line-height: 1.55; }
-.result-card.good { background: var(--good-soft); border-color: #b8e2d6; }
-.result-card.warn { background: var(--warn-soft); border-color: #efda9c; }
-.result-card.bad { background: var(--bad-soft); border-color: #f0b8b3; }
-.result-card.accent { background: var(--accent-soft); border-color: #c1cef4; }
-.result-card.neutral { background: var(--neutral-soft); }
-
 .input-with-select {
   display: grid;
   grid-template-columns: 1fr 86px;
@@ -545,7 +527,7 @@ input:focus, select:focus { outline: 3px solid rgba(36, 87, 214, .12); border-co
   .hero { align-items: flex-start; flex-direction: column; }
   .view-switcher { top: 6px; }
   .view-switcher-inner { width: 100%; }
-  .cols-2, .cols-3, .check-grid, .result-grid, .drink-grid, .clinical-result-grid { grid-template-columns: 1fr; }
+  .cols-2, .cols-3, .check-grid, .drink-grid, .clinical-result-grid { grid-template-columns: 1fr; }
   .choice-card.compact { width: 100%; }
   .helper-actions { justify-content: space-between; }
   .results-overview-heading { flex-direction: column; }

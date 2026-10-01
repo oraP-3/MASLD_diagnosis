@@ -1,7 +1,10 @@
 # MASLD Clinical Support — Specification v0.3
 
-Status: owner-reviewed draft, ready for implementation planning  
-Date: 2026-09-28
+Status: implemented clinical contract; owner-validated through Phase E  
+Original date: 2026-09-28  
+Implementation status reviewed: 2026-10-01
+
+This document is the clinical specification, not the UI or maintenance changelog. Current execution state and final QA are tracked in Issue #2.
 
 ## 1. Product responsibility
 
