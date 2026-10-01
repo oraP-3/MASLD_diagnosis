@@ -1650,7 +1650,7 @@ export function interpretNit(input) {
     } else if (elf < NIT_THRESHOLDS.elfLower) {
       detail = `報告されているF2相当の閾値範囲（約${NIT_THRESHOLDS.elfLower}–${NIT_THRESHOLDS.elfUpper}）未満`;
       status = 'below';
-      severityLabel = '≥F2未満';
+      severityLabel = 'F2未満';
     } else {
       detail = `報告されている≥F2閾値範囲（約${NIT_THRESHOLDS.elfLower}–${NIT_THRESHOLDS.elfUpper}）以上`;
       status = 'f2';
