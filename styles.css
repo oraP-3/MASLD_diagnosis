@@ -518,8 +518,6 @@ input:focus, select:focus { outline: 3px solid rgba(36, 87, 214, .12); border-co
 .nit-item.f2 .nit-severity { background: #f8e7a8; color: var(--warn); }
 .nit-item.f4 { background: var(--bad-soft); border-color: #f0b8b3; }
 .nit-item.f4 .nit-severity { background: #f8d1cd; color: var(--bad); }
-.info-card { background: #fbfcfe; }
-.info-card p { color: var(--muted); margin-bottom: 0; line-height: 1.6; }
 
 @media (max-width: 760px) {
   .app-shell { width: min(100% - 16px, 1100px); margin-top: 10px; }
