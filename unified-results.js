@@ -110,12 +110,6 @@ const BP_RISK_LABELS = Object.freeze({
   high: '高リスク',
 });
 
-const HISAYAMA_RISK_LABELS = Object.freeze({
-  low: '低リスク',
-  intermediate: '中リスク',
-  high: '高リスク',
-});
-
 function compactGlycemiaDetail(result) {
   const details = {
     known_diabetes_general_target:
@@ -544,11 +538,7 @@ function buildLipidsDomain(input) {
     ),
     numericFact('tg', '中性脂肪', input.tg, ' mg/dL', tgResult.tgAboveTarget === true ? 'bad' : 'neutral'),
     result.route?.score !== null && result.route?.score !== undefined
-      ? fact(
-          'modified_hisayama',
-          'modified Hisayama',
-          `${result.route.score}点 / ${HISAYAMA_RISK_LABELS[result.route.riskClass] || result.route.riskClass}`,
-        )
+      ? fact('modified_hisayama', 'modified Hisayama', `${result.route.score}点`)
       : null,
   ]);
 
