@@ -148,3 +148,53 @@ test('E3 C2 below-F2 NIT wording is simplified', () => {
   assert.equal(result[0].severityLabel, 'F2未満');
   assert.doesNotMatch(result[0].detail, /≥F2未満/);
 });
+
+
+test('E3 C2 diabetes LDL tightening keeps 100-119 neutral and marks base-target misses red', () => {
+  const withinBase = buildUnifiedClinicalResult({
+    ...completeBase,
+    diagnosedDiabetes: true,
+    hba1c: 7.0,
+    ldl: 110,
+    pad: false,
+    diabeticMicrovascularDisease: true,
+  });
+  const withinBaseLipids = domain(withinBase, 'lipids');
+  assert.equal(fact(withinBaseLipids, 'ldl').tone, 'neutral');
+  assert.match(withinBaseLipids.interpretation.detail, /LDL-C：基本目標内、<100 mg\/dLへの厳格化を考慮/);
+
+  const aboveBase = buildUnifiedClinicalResult({
+    ...completeBase,
+    diagnosedDiabetes: true,
+    hba1c: 7.0,
+    ldl: 130,
+    pad: false,
+    diabeticMicrovascularDisease: true,
+  });
+  const aboveBaseLipids = domain(aboveBase, 'lipids');
+  assert.equal(fact(aboveBaseLipids, 'ldl').tone, 'bad');
+  assert.match(aboveBaseLipids.interpretation.detail, /基本目標未達（<120 mg\/dL）/);
+  assert.match(aboveBaseLipids.interpretation.detail, /さらに<100 mg\/dLへの厳格化を考慮/);
+});
+
+test('E3 C2 target-met glycemia and treated urate omit redundant numeric target values', () => {
+  const diabetes = buildUnifiedClinicalResult({
+    ...completeBase,
+    diagnosedDiabetes: true,
+    hba1c: 6.5,
+    pad: false,
+    diabeticMicrovascularDisease: false,
+  });
+  const glycemia = domain(diabetes, 'glycemia');
+  assert.match(glycemia.interpretation.detail, /一般的な合併症予防目標の範囲内/);
+  assert.doesNotMatch(glycemia.interpretation.detail, /7\.0%未満/);
+
+  const urate = buildUnifiedClinicalResult({
+    ...completeBase,
+    uricAcid: 5.5,
+    urateTreatment: true,
+  });
+  const urateDomain = domain(urate, 'uric_acid');
+  assert.equal(urateDomain.interpretation.detail, 'ガイドライン上の参考目標内です。');
+  assert.doesNotMatch(urateDomain.interpretation.detail, /6\.0 mg\/dL/);
+});
