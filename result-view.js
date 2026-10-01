@@ -25,9 +25,9 @@ function domainStatus(domain) {
     return { label: '要確認', className: 'required' };
   }
   if (domain.hasNextEvaluation) {
-    return { label: '次の評価あり', className: 'next' };
+    return { label: '追加評価あり', className: 'next' };
   }
-  return { label: '判定可能', className: 'complete' };
+  return null;
 }
 
 function renderFacts(facts) {
@@ -36,33 +36,20 @@ function renderFacts(facts) {
   }
 
   return `<div class="summary-facts">${facts.map((item) => `
-    <span class="fact-chip"><span>${escapeHtml(item.label)}</span><strong>${escapeHtml(item.value)}</strong></span>
+    <span class="fact-chip ${toneClass(item.tone)}"><span>${escapeHtml(item.label)}</span><strong>${escapeHtml(item.value)}</strong></span>
   `).join('')}</div>`;
 }
 
 function renderNextAction(nextAction) {
-  if (!nextAction) {
-    return '<p class="summary-empty">現時点で追加の対応はありません。</p>';
-  }
+  if (!nextAction) return '';
 
-  return `<div class="summary-action ${toneClass(nextAction.tone)}">
-    <strong>${escapeHtml(nextAction.title)}</strong>
-    <p>${escapeHtml(nextAction.detail)}</p>
-  </div>`;
-}
-
-function renderDomainMissing(domain) {
-  const count = domain.requiredMissingKeys.length + domain.nextEvaluationKeys.length;
-  if (count === 0) return '';
-
-  const parts = [];
-  if (domain.requiredMissingKeys.length) {
-    parts.push(`<span class="domain-missing required">A ${domain.requiredMissingKeys.length}件</span>`);
-  }
-  if (domain.nextEvaluationKeys.length) {
-    parts.push(`<span class="domain-missing next">B ${domain.nextEvaluationKeys.length}件</span>`);
-  }
-  return `<div class="domain-missing-row">${parts.join('')}</div>`;
+  return `<section class="summary-layer action">
+    <p class="summary-layer-label">次の対応</p>
+    <div class="summary-action ${toneClass(nextAction.tone)}">
+      <strong>${escapeHtml(nextAction.title)}</strong>
+      <p>${escapeHtml(nextAction.detail)}</p>
+    </div>
+  </section>`;
 }
 
 function renderDomainCard(domain) {
@@ -73,7 +60,7 @@ function renderDomainCard(domain) {
         <p class="result-label">${escapeHtml(domain.label)}</p>
         <h3>${escapeHtml(domain.interpretation.title)}</h3>
       </div>
-      <span class="summary-status ${status.className}">${status.label}</span>
+      ${status ? `<span class="summary-status ${status.className}">${status.label}</span>` : ''}
     </header>
 
     <section class="summary-layer">
@@ -86,12 +73,7 @@ function renderDomainCard(domain) {
       <p class="summary-detail">${escapeHtml(domain.interpretation.detail)}</p>
     </section>
 
-    <section class="summary-layer action">
-      <p class="summary-layer-label">次の対応</p>
-      ${renderNextAction(domain.nextAction)}
-    </section>
-
-    ${renderDomainMissing(domain)}
+    ${renderNextAction(domain.nextAction)}
   </article>`;
 }
 
