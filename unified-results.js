@@ -144,6 +144,9 @@ function compactUricAcidDetail(result) {
   if (result.id === 'treated_at_target') {
     return 'ガイドライン上の参考目標内です。';
   }
+  if (result.id === 'treated_above_target') {
+    return 'ガイドライン上の参考目標（6.0 mg/dL以下）を上回ります。';
+  }
   return result.detail.replace(/^尿酸 [0-9.]+ mg\/dL。\s*/, '');
 }
 
@@ -510,13 +513,20 @@ function buildLipidsDomain(input) {
       tone: 'warn',
     };
   } else if (result.status === 'target_set' && result.atTarget === false) {
-    nextAction = {
-      title: input.lipidTreatment ? '脂質低下療法を再評価' : 'LDL-C管理介入を検討',
-      detail: input.lipidTreatment
-        ? '治療強化の要否を臨床的に検討します。'
-        : '目標達成に向けた生活習慣介入・薬物療法の要否を臨床的に検討します。',
-      tone: 'warn',
-    };
+    const tighteningOnly =
+      result.targetReason === 'diabetes_strict' &&
+      result.ldl !== null &&
+      result.ldl < LIPID_TARGETS.diabetesDefault;
+
+    if (!tighteningOnly) {
+      nextAction = {
+        title: input.lipidTreatment ? '脂質低下療法を再評価' : 'LDL-C管理介入を検討',
+        detail: input.lipidTreatment
+          ? '治療強化の要否を臨床的に検討します。'
+          : '目標達成に向けた生活習慣介入・薬物療法の要否を臨床的に検討します。',
+        tone: 'warn',
+      };
+    }
   }
 
   const tgResult = evaluateLipidTriglycerides(input);
