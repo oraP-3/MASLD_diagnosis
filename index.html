@@ -82,13 +82,14 @@
         <label>HDL-C mg/dL<input id="hdl" type="number" min="5" max="200" inputmode="numeric" /></label>
         <label>LDL-C mg/dL<input id="ldl" type="number" min="1" max="500" inputmode="numeric" /></label>
         <div class="tg-input-group">
-          <label>中性脂肪 mg/dL<input id="tg" type="number" min="20" max="3000" inputmode="numeric" /></label>
+          <label for="tg">中性脂肪 mg/dL</label>
           <fieldset class="tg-sample-fieldset">
             <legend>採血条件</legend>
             <label class="choice compact-choice"><input id="tgFastingUnknown" type="radio" name="tgFastingStatus" value="" checked /> 不明</label>
             <label class="choice compact-choice"><input type="radio" name="tgFastingStatus" value="fasting" /> 空腹時</label>
             <label class="choice compact-choice"><input type="radio" name="tgFastingStatus" value="nonfasting" /> 随時</label>
           </fieldset>
+          <input id="tg" type="number" min="20" max="3000" inputmode="numeric" />
         </div>
       </div>
 
