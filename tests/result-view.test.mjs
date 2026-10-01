@@ -190,3 +190,26 @@ test('E3 C2 fact tone can highlight an unmet target without coloring all facts',
   assert.match(view.cardsHtml, /fact-chip neutral/);
   assert.match(view.cardsHtml, /fact-chip bad/);
 });
+
+
+test('E3 C2 empty interpretation text removes the interpretation layer', () => {
+  const domains = [
+    domain('blood_pressure', '血圧', {
+      interpretation: {
+        id: 'normal',
+        title: '正常血圧',
+        detail: '',
+        tone: 'good',
+      },
+    }),
+  ];
+
+  const view = renderUnifiedResultView({
+    domains,
+    missing: { required: [], nextEvaluation: [] },
+    completion: { state: 'complete', message: '完了' },
+  });
+
+  assert.doesNotMatch(view.cardsHtml, /summary-layer interpretation/);
+  assert.doesNotMatch(view.cardsHtml, />解釈</);
+});
