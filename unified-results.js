@@ -4,6 +4,7 @@ import {
   deriveCmrf,
   evaluateFib4,
   evaluateGlycemia,
+  evaluateLipidTriglycerides,
   evaluatePlatelets,
   evaluateUricAcid,
   interpretNit,
@@ -75,13 +76,13 @@ function missingItem(key, dataClass, domain, reason) {
   };
 }
 
-function fact(key, label, value) {
-  return { key, label, value: String(value) };
+function fact(key, label, value, tone = 'neutral') {
+  return { key, label, value: String(value), tone };
 }
 
-function numericFact(key, label, raw, suffix = '') {
+function numericFact(key, label, raw, suffix = '', tone = 'neutral') {
   const value = toNumber(raw);
-  return value === null ? null : fact(key, label, `${value}${suffix}`);
+  return value === null ? null : fact(key, label, `${value}${suffix}`, tone);
 }
 
 function compactFacts(items) {
@@ -100,6 +101,112 @@ function fibrosisTone(id) {
   if (id === 'intermediate') return 'warn';
   if (id === 'high') return 'bad';
   return 'neutral';
+}
+
+const BP_RISK_LABELS = Object.freeze({
+  low: '低リスク',
+  moderate: '中等リスク',
+  high: '高リスク',
+});
+
+const HISAYAMA_RISK_LABELS = Object.freeze({
+  low: '低リスク',
+  intermediate: '中リスク',
+  high: '高リスク',
+});
+
+function compactGlycemiaDetail(result) {
+  const details = {
+    known_diabetes_general_target:
+      '一般的な合併症予防目標（HbA1c 7.0%未満）の範囲内です。実際の目標は年齢・罹病期間・合併症・低血糖リスク等で個別化します。',
+    known_diabetes_above_general_target:
+      '一般的な合併症予防目標（HbA1c 7.0%未満）を上回ります。実際の目標は個別背景を踏まえて設定します。',
+    hba1c_and_glucose_diabetic_range:
+      'HbA1cと入力血糖の少なくとも一つが糖尿病型です。同一採血で得られた場合は日本糖尿病学会の診断基準を満たします。最終診断は臨床情報と併せて判断してください。',
+    hba1c_diabetic_range_needs_glucose:
+      'HbA1cは糖尿病型です。HbA1c単独では診断を確定せず、血糖値による確認が必要です。',
+    hba1c_diabetic_range_glucose_below:
+      'HbA1cは糖尿病型ですが、入力血糖は糖尿病型未満です。HbA1c単独では診断を確定せず、再検査等を臨床的に検討します。',
+    fasting_glucose_diabetic_range_repeat_confirmed:
+      '空腹時血糖は糖尿病型で、別日に糖尿病型を再確認済みのため診断基準を満たします。最終診断は症状や臨床経過も含めて判断してください。',
+    fasting_glucose_diabetic_range_needs_confirmation:
+      '空腹時血糖は糖尿病型です。1回のみでは本ツール上は診断を確定せず、別日の糖尿病型確認や症状等を含めて臨床判断します。',
+    masld_glucose_cmrf:
+      'MASLDの糖代謝CMRFに該当します。現在の入力では糖尿病型の基準には達していません。',
+    below_masld_cmrf:
+      'MASLDの糖代謝CMRFには該当しません。',
+  };
+  return details[result.id] || result.detail;
+}
+
+function compactUricAcidDetail(result) {
+  return result.detail.replace(/^尿酸 [0-9.]+ mg\/dL。\s*/, '');
+}
+
+function lipidContextLabel(result) {
+  switch (result.targetReason) {
+    case 'fh_primary': return '既知FH・一次予防';
+    case 'fh_secondary': return '既知FH・二次予防';
+    case 'secondary_base': return '二次予防';
+    case 'secondary_strict':
+      if (result.strictReason === 'diabetes') return '二次予防＋糖尿病';
+      if (result.strictReason === 'acute_coronary_syndrome') return '二次予防＋ACS';
+      return '冠動脈疾患＋該当脳梗塞';
+    case 'diabetes_default': return '糖尿病・一次予防';
+    case 'diabetes_strict':
+      if (result.strictReason === 'current_smoking') return '糖尿病＋現在喫煙';
+      if (result.strictReason === 'pad') return '糖尿病＋PAD';
+      return '糖尿病＋細小血管症';
+    case 'ckd': return 'CKD・一次予防';
+    case 'pad': return 'PAD・一次予防';
+    case 'primary_low': return '一次予防・低リスク';
+    case 'primary_intermediate': return '一次予防・中リスク';
+    case 'primary_high': return '一次予防・高リスク';
+    default: return result.title;
+  }
+}
+
+function compactLipidInterpretation(result, input) {
+  if (result.status !== 'target_set') {
+    return { title: result.title, detail: result.detail };
+  }
+
+  const tgResult = evaluateLipidTriglycerides(input);
+  const parts = [];
+  const strict = result.targetReason === 'diabetes_strict';
+
+  if (result.ldl !== null) {
+    if (strict) {
+      parts.push(result.atTarget
+        ? 'LDL-C：厳格化目標内'
+        : `LDL-C：<${result.target} mg/dLへの厳格化を考慮`);
+    } else {
+      parts.push(result.atTarget
+        ? 'LDL-C：目標内'
+        : `LDL-C：目標未達（目標 <${result.target} mg/dL）`);
+    }
+  } else {
+    parts.push(strict
+      ? `LDL-C：未入力（<${result.target} mg/dLへの厳格化を考慮）`
+      : `LDL-C：未入力（目標 <${result.target} mg/dL）`);
+  }
+
+  if (tgResult.tg !== null) {
+    parts.push(tgResult.tgAboveTarget
+      ? `TG：目標未達（<${tgResult.tgThreshold} mg/dL）`
+      : 'TG：目標内');
+  }
+
+  if (tgResult.hdl !== null) {
+    parts.push(tgResult.hdlBelowTarget
+      ? 'HDL-C：低値（<40 mg/dL）'
+      : 'HDL-C：基準内');
+  }
+
+  return {
+    title: lipidContextLabel(result),
+    detail: parts.join(' / '),
+  };
 }
 
 function mapCmrfMissing(input, cmrf, suggestions) {
@@ -241,7 +348,7 @@ function buildFibrosisDomain(input) {
     facts,
     interpretation: {
       id: fib4Evaluation?.id || 'pending',
-      title: fib4Evaluation ? `FIB-4 ${fib4.toFixed(2)} — ${fib4Evaluation.label}` : 'FIB-4判定待ち',
+      title: fib4Evaluation ? fib4Evaluation.label : 'FIB-4判定待ち',
       detail,
       tone: fibrosisTone(fib4Evaluation?.id),
     },
@@ -287,8 +394,17 @@ function buildBloodPressureDomain(input) {
   const sbp = toNumber(input.sbp);
   const dbp = toNumber(input.dbp);
   const facts = compactFacts([
-    sbp !== null && dbp !== null ? fact('office_bp', '診察室血圧', `${sbp}/${dbp} mmHg`) : null,
-    result.riskLevel && result.riskLevel !== 'unresolved' ? fact('bp_risk', 'リスク', result.riskLevel) : null,
+    sbp !== null && dbp !== null
+      ? fact(
+          'office_bp',
+          '診察室血圧',
+          `${sbp}/${dbp} mmHg`,
+          result.timingClass === 'treated_above_target' ? 'bad' : 'neutral',
+        )
+      : null,
+    BP_RISK_LABELS[result.riskLevel]
+      ? fact('bp_risk', 'リスク', BP_RISK_LABELS[result.riskLevel])
+      : null,
   ]);
 
   return {
@@ -395,12 +511,18 @@ function buildLipidsDomain(input) {
     };
   }
 
+  const tgResult = evaluateLipidTriglycerides(input);
+  const display = compactLipidInterpretation(result, input);
   const facts = compactFacts([
-    numericFact('ldl', 'LDL-C', input.ldl, ' mg/dL'),
-    numericFact('tg', '中性脂肪', input.tg, ' mg/dL'),
-    numericFact('hdl', 'HDL-C', input.hdl, ' mg/dL'),
+    numericFact('hdl', 'HDL-C', input.hdl, ' mg/dL', tgResult.hdlBelowTarget === true ? 'bad' : 'neutral'),
+    numericFact('ldl', 'LDL-C', input.ldl, ' mg/dL', result.atTarget === false ? 'bad' : 'neutral'),
+    numericFact('tg', '中性脂肪', input.tg, ' mg/dL', tgResult.tgAboveTarget === true ? 'bad' : 'neutral'),
     result.route?.score !== null && result.route?.score !== undefined
-      ? fact('modified_hisayama', 'modified Hisayama', `${result.route.score}点 / ${result.route.riskClass}`)
+      ? fact(
+          'modified_hisayama',
+          'modified Hisayama',
+          `${result.route.score}点 / ${HISAYAMA_RISK_LABELS[result.route.riskClass] || result.route.riskClass}`,
+        )
       : null,
   ]);
 
@@ -410,8 +532,8 @@ function buildLipidsDomain(input) {
     facts,
     interpretation: {
       id: result.targetReason || result.status,
-      title: result.title,
-      detail: [result.detail, result.tgDetail].filter(Boolean).join(' '),
+      title: display.title,
+      detail: display.detail,
       tone: result.tone === 'bad' || result.tgTone === 'bad'
         ? 'bad'
         : result.tone === 'warn' || result.tgTone === 'warn'
@@ -455,7 +577,13 @@ function buildGlycemiaDomain(input) {
   }
 
   const facts = compactFacts([
-    numericFact('hba1c', 'HbA1c', input.hba1c, '%'),
+    numericFact(
+      'hba1c',
+      'HbA1c',
+      input.hba1c,
+      '%',
+      result.id === 'known_diabetes_above_general_target' ? 'bad' : 'neutral',
+    ),
     numericFact('fasting_glucose', '空腹時血糖', input.fastingGlucose, ' mg/dL'),
     numericFact('random_glucose', '随時血糖', input.randomGlucose, ' mg/dL'),
   ]);
@@ -467,7 +595,7 @@ function buildGlycemiaDomain(input) {
     interpretation: {
       id: result.id,
       title: result.title,
-      detail: result.detail,
+      detail: compactGlycemiaDetail(result),
       tone: result.tone,
     },
     nextAction,
@@ -536,7 +664,13 @@ function buildUricAcidDomain(input) {
   }
 
   const facts = compactFacts([
-    numericFact('uric_acid', '尿酸', input.uricAcid, ' mg/dL'),
+    numericFact(
+      'uric_acid',
+      '尿酸',
+      input.uricAcid,
+      ' mg/dL',
+      result.id === 'treated_above_target' ? 'bad' : 'neutral',
+    ),
     input.urateTreatment ? fact('urate_treatment', '尿酸降下薬', '使用中') : null,
   ]);
 
@@ -547,7 +681,7 @@ function buildUricAcidDomain(input) {
     interpretation: {
       id: result.id,
       title: result.title,
-      detail: result.detail,
+      detail: compactUricAcidDetail(result),
       tone: result.tone,
     },
     nextAction,
