@@ -162,6 +162,7 @@ test('E3 C2 diabetes LDL tightening keeps 100-119 neutral and marks base-target 
   const withinBaseLipids = domain(withinBase, 'lipids');
   assert.equal(fact(withinBaseLipids, 'ldl').tone, 'neutral');
   assert.match(withinBaseLipids.interpretation.detail, /LDL-C：基本目標内、<100 mg\/dLへの厳格化を考慮/);
+  assert.equal(withinBaseLipids.nextAction, null);
 
   const aboveBase = buildUnifiedClinicalResult({
     ...completeBase,
@@ -175,6 +176,7 @@ test('E3 C2 diabetes LDL tightening keeps 100-119 neutral and marks base-target 
   assert.equal(fact(aboveBaseLipids, 'ldl').tone, 'bad');
   assert.match(aboveBaseLipids.interpretation.detail, /基本目標未達（<120 mg\/dL）/);
   assert.match(aboveBaseLipids.interpretation.detail, /さらに<100 mg\/dLへの厳格化を考慮/);
+  assert.ok(aboveBaseLipids.nextAction);
 });
 
 test('E3 C2 target-met glycemia and treated urate omit redundant numeric target values', () => {
@@ -197,4 +199,16 @@ test('E3 C2 target-met glycemia and treated urate omit redundant numeric target 
   const urateDomain = domain(urate, 'uric_acid');
   assert.equal(urateDomain.interpretation.detail, 'ガイドライン上の参考目標内です。');
   assert.doesNotMatch(urateDomain.interpretation.detail, /6\.0 mg\/dL/);
+});
+
+
+test('E3 C2 treated urate keeps the threshold only when the target is missed', () => {
+  const urate = buildUnifiedClinicalResult({
+    ...completeBase,
+    uricAcid: 7.0,
+    urateTreatment: true,
+  });
+  const urateDomain = domain(urate, 'uric_acid');
+  assert.equal(urateDomain.interpretation.detail, 'ガイドライン上の参考目標（6.0 mg/dL以下）を上回ります。');
+  assert.ok(urateDomain.nextAction);
 });
