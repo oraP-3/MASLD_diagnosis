@@ -68,10 +68,10 @@ function renderDomainCard(domain) {
       ${renderFacts(domain.facts)}
     </section>
 
-    <section class="summary-layer interpretation">
+    ${domain.interpretation.detail ? `<section class="summary-layer interpretation">
       <p class="summary-layer-label">解釈</p>
       <p class="summary-detail">${escapeHtml(domain.interpretation.detail)}</p>
-    </section>
+    </section>` : ''}
 
     ${renderNextAction(domain.nextAction)}
   </article>`;
