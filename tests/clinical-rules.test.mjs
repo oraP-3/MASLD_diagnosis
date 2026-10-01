@@ -38,6 +38,79 @@ test('UA 8.0 to 8.9 waits for relevant complication status when unresolved',()=>
 test('UA 8.0 to 8.9 with diabetes enters treatment-consideration branch',()=>{const r=evaluateUricAcid({uricAcid:8.2,urateTreatment:false,goutPresent:false,urinaryStone:false,otherUrateComplication:null,diagnosedDiabetes:true,antihypertensiveTreatment:false});assert.equal(r.id,'asymptomatic_ge8_with_complication');assert.match(r.detail,/考慮/)});
 test('UA 8.0 to 8.9 with no relevant complication remains lifestyle-first',()=>{const r=evaluateUricAcid({uricAcid:8.2,urateTreatment:false,goutPresent:false,urinaryStone:false,otherUrateComplication:false,diagnosedDiabetes:false,antihypertensiveTreatment:false});assert.equal(r.id,'asymptomatic_8_without_complication');assert.match(r.detail,/生活習慣/)});
 test('urinary stone independently counts as a relevant complication',()=>{const r=evaluateUricAcid({uricAcid:8.2,urateTreatment:false,goutPresent:false,urinaryStone:true,otherUrateComplication:null,diagnosedDiabetes:false,antihypertensiveTreatment:false});assert.equal(r.id,'asymptomatic_ge8_with_complication')});
+
+test('confirmed grade-I hypertension is reused by the uric-acid 8 mg/dL complication branch',()=>{
+  const r=evaluateUricAcid({
+    uricAcid:8.2,
+    urateTreatment:false,
+    goutPresent:false,
+    urinaryStone:false,
+    otherUrateComplication:null,
+    diagnosedDiabetes:false,
+    diagnosedCkd:false,
+    antihypertensiveTreatment:false,
+    sbp:145,
+    dbp:92,
+    bpPersistence:'home',
+  });
+  assert.equal(r.id,'asymptomatic_ge8_with_complication');
+  assert.equal(r.showComplicationQuestion,false);
+});
+
+test('other-office confirmation also reuses grade-I hypertension in the urate branch',()=>{
+  const r=evaluateUricAcid({
+    uricAcid:8.2,
+    urateTreatment:false,
+    goutPresent:false,
+    urinaryStone:false,
+    otherUrateComplication:null,
+    diagnosedDiabetes:false,
+    diagnosedCkd:false,
+    antihypertensiveTreatment:false,
+    sbp:145,
+    dbp:92,
+    bpPersistence:'other_office',
+  });
+  assert.equal(r.id,'asymptomatic_ge8_with_complication');
+  assert.equal(r.showComplicationQuestion,false);
+});
+
+test('single unconfirmed grade-I BP does not silently establish hypertension for urate routing',()=>{
+  const r=evaluateUricAcid({
+    uricAcid:8.2,
+    urateTreatment:false,
+    goutPresent:false,
+    urinaryStone:false,
+    otherUrateComplication:null,
+    diagnosedDiabetes:false,
+    diagnosedCkd:false,
+    antihypertensiveTreatment:false,
+    sbp:145,
+    dbp:92,
+    bpPersistence:'not_confirmed',
+  });
+  assert.equal(r.id,'needs_complication');
+  assert.equal(r.showComplicationQuestion,true);
+});
+
+test('confirmed 130-139 or 80-89 BP is not promoted to hypertension for urate routing',()=>{
+  const r=evaluateUricAcid({
+    uricAcid:8.2,
+    urateTreatment:false,
+    goutPresent:false,
+    urinaryStone:false,
+    otherUrateComplication:null,
+    diagnosedDiabetes:false,
+    diagnosedCkd:false,
+    antihypertensiveTreatment:false,
+    sbp:135,
+    dbp:85,
+    bpPersistence:'home',
+  });
+  assert.equal(r.id,'needs_complication');
+  assert.equal(r.showComplicationQuestion,true);
+});
+
 test('UA 9.0 or higher can trigger treatment consideration without complication data',()=>{const r=evaluateUricAcid({uricAcid:9.0,urateTreatment:false,goutPresent:false,urinaryStone:null,otherUrateComplication:null,diagnosedDiabetes:false,antihypertensiveTreatment:false});assert.equal(r.id,'asymptomatic_ge9');assert.equal(r.showComplicationQuestion,false)});
 test('urate-lowering treatment preserves treatment context even when current UA is below 7',()=>{const atTarget=evaluateUricAcid({uricAcid:5.9,urateTreatment:true,goutPresent:null,urinaryStone:null,otherUrateComplication:null,diagnosedDiabetes:false,antihypertensiveTreatment:false});const above=evaluateUricAcid({uricAcid:6.5,urateTreatment:true,goutPresent:null,urinaryStone:null,otherUrateComplication:null,diagnosedDiabetes:false,antihypertensiveTreatment:false});assert.equal(atTarget.id,'treated_at_target');assert.equal(above.id,'treated_above_target');assert.equal(atTarget.showContextQuestions,false)});
 
