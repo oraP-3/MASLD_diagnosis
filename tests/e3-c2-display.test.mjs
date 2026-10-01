@@ -145,9 +145,12 @@ test('E3 C2 highlights only clear treatment-target misses for glycemia urate and
 });
 
 test('E3 C2 below-F2 NIT wording is simplified', () => {
-  const result = interpretNit({ vcteKpa: 5.0 });
-  assert.equal(result[0].severityLabel, 'F2未満');
-  assert.doesNotMatch(result[0].detail, /≥F2未満/);
+  const result = interpretNit({ vcteKpa: 5.0, elf: 8.0 });
+  const byKey = Object.fromEntries(result.map((item) => [item.key, item]));
+  assert.equal(byKey.vcte.severityLabel, 'F2未満');
+  assert.equal(byKey.elf.severityLabel, 'F2未満');
+  assert.doesNotMatch(byKey.vcte.detail, /≥F2未満/);
+  assert.doesNotMatch(byKey.elf.detail, /≥F2未満/);
 });
 
 
