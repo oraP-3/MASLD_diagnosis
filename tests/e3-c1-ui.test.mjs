@@ -40,3 +40,15 @@ test('E3 C1 view switch is sticky and mobile-safe', () => {
   assert.match(css, /\.view-switcher-inner\s*\{[\s\S]*?grid-template-columns:\s*repeat\(2/);
   assert.match(css, /@media \(max-width: 760px\)[\s\S]*?\.view-switcher-inner \{ width: 100%; \}/);
 });
+
+
+test('E3 C1 TG block reads as TG label then sampling condition then value input', () => {
+  const groupStart = html.indexOf('<div class="tg-input-group">');
+  const groupEnd = html.indexOf('</div>', groupStart);
+  const block = html.slice(groupStart, groupEnd);
+  const title = block.indexOf('中性脂肪 mg/dL');
+  const sampling = block.indexOf('<legend>採血条件</legend>');
+  const input = block.indexOf('id="tg"');
+  assert.ok(title >= 0 && sampling >= 0 && input >= 0);
+  assert.ok(title < sampling && sampling < input);
+});
