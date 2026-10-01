@@ -69,11 +69,12 @@ test('E3 C2 hides non-applicable BP risk instead of exposing the internal enum',
   assert.doesNotMatch(JSON.stringify(bp), /not_applicable/);
 });
 
-test('E3 C2 localizes modified Hisayama risk labels', () => {
+test('E3 C2 keeps Hisayama score in the fact and risk class in the card title', () => {
   const result = buildUnifiedClinicalResult(completeBase);
   const lipids = domain(result, 'lipids');
-  assert.match(fact(lipids, 'modified_hisayama').value, /低リスク/);
-  assert.doesNotMatch(fact(lipids, 'modified_hisayama').value, /\/ low$/);
+  assert.equal(fact(lipids, 'modified_hisayama').value, '0点');
+  assert.equal(lipids.interpretation.title, '一次予防・低リスク');
+  assert.doesNotMatch(JSON.stringify(lipids), /\/ low|\/ intermediate|\/ high/);
 });
 
 test('E3 C2 removes repeated glycemia and urate numeric prose while retaining facts', () => {
