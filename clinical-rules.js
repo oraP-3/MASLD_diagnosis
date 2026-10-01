@@ -1413,6 +1413,20 @@ export function summarizeLipids(input) {
   };
 }
 
+function hasEstablishedHypertensionForUrate(input) {
+  if (input.antihypertensiveTreatment) return true;
+
+  const category = classifyOfficeBp(input.sbp, input.dbp);
+  const persistenceConfirmed =
+    input.bpPersistence === 'other_office' ||
+    input.bpPersistence === 'home';
+
+  return (
+    persistenceConfirmed &&
+    ['grade1', 'grade2', 'grade3'].includes(category?.id)
+  );
+}
+
 export function evaluateUricAcid(input) {
   const ua = toNumber(input.uricAcid);
   const treated = Boolean(input.urateTreatment);
@@ -1499,16 +1513,17 @@ export function evaluateUricAcid(input) {
   }
 
   if (ua >= URIC_ACID_THRESHOLDS.complicationConsideration) {
+    const establishedHypertension = hasEstablishedHypertensionForUrate(input);
     const knownComplication =
       Boolean(input.diagnosedDiabetes) ||
-      Boolean(input.antihypertensiveTreatment) ||
+      establishedHypertension ||
       Boolean(input.diagnosedCkd) ||
       stone === true ||
       otherComplication === true;
     const complicationResolved = knownComplication || (stone === false && otherComplication === false);
     const showComplicationQuestion =
       !input.diagnosedDiabetes &&
-      !input.antihypertensiveTreatment &&
+      !establishedHypertension &&
       !input.diagnosedCkd &&
       stone !== true;
 
