@@ -32,7 +32,7 @@ Every domain maps to:
 {
   key,
   label,
-  facts: [{ key, label, value }],
+  facts: [{ key, label, value, tone? }],
   interpretation: {
     id,
     title,
@@ -54,7 +54,7 @@ Every domain maps to:
 
 The semantic separation is deliberate:
 
-- `facts`: measured or directly derived numeric/context facts;
+- `facts`: measured or directly derived numeric/context facts; optional `tone` is presentation metadata only (for example, highlighting an already-determined target miss) and does not change clinical routing;
 - `interpretation`: the clinical classification or current assessment;
 - `nextAction`: an action consideration already supported by the owning domain logic;
 - missing data: information still needed or a meaningful next evaluation.
