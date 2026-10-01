@@ -109,7 +109,7 @@ test('E2 complete state renders a clear no-more-decision-relevant-data message',
   assert.match(view.completionHtml, /completion-banner good/);
 });
 
-test('E2 per-domain status distinguishes incomplete current decisions from next evaluation', () => {
+test('E3 C2 per-domain status shows only required or next-evaluation badges', () => {
   const domains = [
     domain('sld', 'SLD分類', {
       requiredMissingKeys: ['waist'],
@@ -129,9 +129,9 @@ test('E2 per-domain status distinguishes incomplete current decisions from next 
   });
 
   assert.match(view.cardsHtml, /summary-status required">要確認/);
-  assert.match(view.cardsHtml, /summary-status next">次の評価あり/);
-  assert.match(view.cardsHtml, /domain-missing required">A 1件/);
-  assert.match(view.cardsHtml, /domain-missing next">B 1件/);
+  assert.match(view.cardsHtml, /summary-status next">追加評価あり/);
+  assert.doesNotMatch(view.cardsHtml, /判定可能/);
+  assert.doesNotMatch(view.cardsHtml, /domain-missing/);
 });
 
 test('E2 renderer escapes fact and interpretation text before inserting HTML', () => {
@@ -156,4 +156,60 @@ test('E2 renderer escapes fact and interpretation text before inserting HTML', (
   assert.match(view.cardsHtml, /&lt;script&gt;/);
   assert.match(view.cardsHtml, /&lt;b&gt;unsafe&lt;\/b&gt;/);
   assert.match(view.completionHtml, /&lt;done&gt;/);
+});
+
+
+test('E3 C2 complete domains omit status badges and empty next-action sections', () => {
+  const view = renderUnifiedResultView({
+    domains: sixDomains,
+    missing: { required: [], nextEvaluation: [] },
+    completion: { state: 'complete', message: '完了' },
+  });
+
+  assert.doesNotMatch(view.cardsHtml, /summary-status/);
+  assert.doesNotMatch(view.cardsHtml, /現時点で追加の対応はありません/);
+  assert.doesNotMatch(view.cardsHtml, /summary-layer action/);
+});
+
+test('E3 C2 fact tone can highlight an unmet target without coloring all facts', () => {
+  const domains = [
+    domain('lipids', '脂質', {
+      facts: [
+        { key: 'hdl', label: 'HDL-C', value: '50 mg/dL', tone: 'neutral' },
+        { key: 'ldl', label: 'LDL-C', value: '150 mg/dL', tone: 'bad' },
+      ],
+    }),
+  ];
+
+  const view = renderUnifiedResultView({
+    domains,
+    missing: { required: [], nextEvaluation: [] },
+    completion: { state: 'complete', message: '完了' },
+  });
+
+  assert.match(view.cardsHtml, /fact-chip neutral/);
+  assert.match(view.cardsHtml, /fact-chip bad/);
+});
+
+
+test('E3 C2 empty interpretation text removes the interpretation layer', () => {
+  const domains = [
+    domain('blood_pressure', '血圧', {
+      interpretation: {
+        id: 'normal',
+        title: '正常血圧',
+        detail: '',
+        tone: 'good',
+      },
+    }),
+  ];
+
+  const view = renderUnifiedResultView({
+    domains,
+    missing: { required: [], nextEvaluation: [] },
+    completion: { state: 'complete', message: '完了' },
+  });
+
+  assert.doesNotMatch(view.cardsHtml, /summary-layer interpretation/);
+  assert.doesNotMatch(view.cardsHtml, />解釈</);
 });

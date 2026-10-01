@@ -1628,8 +1628,8 @@ export function interpretNit(input) {
       return;
     }
     results.push({
-      key, label, value: n, unit, status: 'below', severityLabel: '≥F2未満',
-      detail: `≥F2を示唆する報告カットオフ（${cutoff} ${unit}）未満`
+      key, label, value: n, unit, status: 'below', severityLabel: 'F2未満',
+      detail: `F2相当を示唆する報告カットオフ（${cutoff} ${unit}）未満`
     });
   };
 
@@ -1648,9 +1648,9 @@ export function interpretNit(input) {
       status = 'f4';
       severityLabel = 'F4を示唆';
     } else if (elf < NIT_THRESHOLDS.elfLower) {
-      detail = `報告されている≥F2閾値範囲（約${NIT_THRESHOLDS.elfLower}–${NIT_THRESHOLDS.elfUpper}）未満`;
+      detail = `報告されているF2相当の閾値範囲（約${NIT_THRESHOLDS.elfLower}–${NIT_THRESHOLDS.elfUpper}）未満`;
       status = 'below';
-      severityLabel = '≥F2未満';
+      severityLabel = 'F2未満';
     } else {
       detail = `報告されている≥F2閾値範囲（約${NIT_THRESHOLDS.elfLower}–${NIT_THRESHOLDS.elfUpper}）以上`;
       status = 'f2';
